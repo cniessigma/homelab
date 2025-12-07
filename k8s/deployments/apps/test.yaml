@@ -11,7 +11,7 @@ spec:
   project: default
   sources:
     - path: k8s/deployments/configs/test
-      repoURL: git@github.com:gensyn-ai/infra.git
+      repoURL: git@github.com:cniessigma/homelab.git
       targetRevision: HEAD
   syncPolicy:
     syncOptions:
