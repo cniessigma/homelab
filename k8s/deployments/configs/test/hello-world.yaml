@@ -11,4 +11,11 @@ spec:
       command: ["/bin/sh", "-c", "sleep infinity"]
       stdin: true
       tty: true
+      resources:
+        requests:
+          cpu: 100m
+          memory: 100Mi
+        limits:
+          cpu: 100m
+          memory: 100Mi
   restartPolicy: Always
