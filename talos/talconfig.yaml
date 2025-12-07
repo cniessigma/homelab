@@ -12,15 +12,11 @@ nodes:
   - hostname: jericho
     controlPlane: false
     ipAddress: 192.168.128.3
-    installDiskSelector:
-      size: 128GB
+    installDisk: /dev/sda
   - hostname: margaret
     controlPlane: false
     ipAddress: 192.168.128.4
-    installDiskSelector:
-      size: 128GB
+    installDisk: /dev/sda
   # - hostname: seamus
   #   controlPlane: false
   #   ipAddress: 192.168.128.5
-  #   installDiskSelector:
-  #     size: 128GB
