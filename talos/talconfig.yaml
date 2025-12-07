@@ -1,0 +1,26 @@
+---
+clusterName: chardalyn
+endpoint: https://elder-brain.chardalyn.nies.io:6443
+kubernetesVersion: v1.30.0
+talosVersion: v1.11.5
+allowSchedulingOnMasters: true
+nodes:
+  - hostname: elder-brain
+    controlPlane: true
+    ipAddress: 192.168.128.2
+    installDisk: /dev/sda
+  - hostname: jericho
+    controlPlane: false
+    ipAddress: 192.168.128.3
+    installDiskSelector:
+      size: 128GB
+  - hostname: margaret
+    controlPlane: false
+    ipAddress: 192.168.128.4
+    installDiskSelector:
+      size: 128GB
+  # - hostname: seamus
+  #   controlPlane: false
+  #   ipAddress: 192.168.128.5
+  #   installDiskSelector:
+  #     size: 128GB
