@@ -17,6 +17,7 @@ nodes:
     controlPlane: false
     ipAddress: 192.168.128.4
     installDisk: /dev/sda
-  # - hostname: seamus
-  #   controlPlane: false
-  #   ipAddress: 192.168.128.5
+  - hostname: seamus
+    controlPlane: false
+    ipAddress: 192.168.128.5
+    installDisk: /dev/sda
