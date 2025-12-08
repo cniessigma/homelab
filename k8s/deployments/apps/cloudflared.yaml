@@ -2,23 +2,19 @@ apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
   name: cloudflared
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
 spec:
-  metadata:
-    name: cloudflared
-    finalizers:
-      - resources-finalizer.argocd.argoproj.io
-  spec:
-    project: default
-    destination:
-      server: 'https://kubernetes.default.svc'
-      namespace: cloudflared
-    sources:
-      - path: k8s/deployments/configs/ cloudflared
-        repoURL: git@github.com:cniessigma/homelab.git
-        targetRevision: HEAD
-    syncPolicy:
-      syncOptions:
-        - CreateNamespace=true
-      automated:
-        prune: true
-        selfHeal: true
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: cloudflared
+  sources:
+    - path: k8s/deployments/configs/ cloudflared
+      repoURL: git@github.com:cniessigma/homelab.git
+      targetRevision: HEAD
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
