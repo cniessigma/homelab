@@ -1,7 +1,8 @@
 global:
   domain: argocd.nies.io
-
 configs:
+  params:
+    server.insecure: "true"
   cm:
     kustomize.buildOptions: "--enable-alpha-plugins --enable-exec"
 
