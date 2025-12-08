@@ -1,3 +1,4 @@
 secrets
 *.key
 talos/.rendered
+.decrypted~*
