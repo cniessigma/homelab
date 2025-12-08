@@ -10,3 +10,16 @@ configMapGenerator:
   - name: cloudflared-config
     files:
       - config.yaml
+
+generators:
+- |-
+  apiVersion: viaduct.ai/v1
+  kind: ksops
+  metadata:
+    name: sops-generator
+    annotations:
+      config.kubernetes.io/function: |
+          exec:
+            path: ksops
+  files:
+  - secret.enc.yaml
