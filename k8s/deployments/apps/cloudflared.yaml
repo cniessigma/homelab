@@ -9,7 +9,7 @@ spec:
     server: 'https://kubernetes.default.svc'
     namespace: cloudflared
   sources:
-    - path: k8s/deployments/configs/ cloudflared
+    - path: k8s/deployments/configs/cloudflared
       repoURL: git@github.com:cniessigma/homelab.git
       targetRevision: HEAD
   syncPolicy:
