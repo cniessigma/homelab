@@ -5,6 +5,7 @@ commonLabels:
 
 resources:
   - deployment.yaml
+  - volumeclaim.yaml
 
 configMapGenerator:
   - name: cloudflared-config
