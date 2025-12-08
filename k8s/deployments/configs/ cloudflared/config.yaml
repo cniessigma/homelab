@@ -1,0 +1,2 @@
+ingress:
+  - service: http_status:404
