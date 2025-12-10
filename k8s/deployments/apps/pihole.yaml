@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pihole
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: pihole
+  project: default
+  sources:
+    - chart: pihole
+      repoURL: https://mojo2600.github.io/pihole-kubernetes/
+      targetRevision: 2.34.0
+      helm:
+        releaseName: pihole
+        valuesObject:
+          podDnsConfig:
+            enabled: true
+            policy: "None"
+            nameservers:
+            - 127.0.0.1
+            - 1.1.1.1
+    - path: k8s/deployments/configs/pihole
+      repoURL: git@github.com:cniessigma/homelab.git
+      targetRevision: HEAD
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true
