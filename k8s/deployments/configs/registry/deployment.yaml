@@ -67,6 +67,5 @@ spec:
         accessModes: ["ReadWriteOnce"]
         resources:
           requests:
-            storage: 20Gi
-        # Uncomment if you want a specific storageClass:
-        # storageClassName: local-path
+            storage: 150Gi
+        storageClassName: nfs-client
