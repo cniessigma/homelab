@@ -8,6 +8,7 @@ router bgp 65023
   ! homelab with bgp id 65024
   neighbor homelab peer-group
   neighbor homelab remote-as 65024
+  neighbor homelab soft-reconfiguration inbound
   ! These are agressive timers, you might want to double those values
   neighbor homelab timers 2 6
   neighbor homelab timers connect 5
@@ -20,5 +21,7 @@ router bgp 65023
   address-family ipv4 unicast
     neighbor homelab next-hop-self
     neighbor homelab activate
+    neighbor homelab route-map ALLOW-ALL in
+    neighbor homelab route-map ALLOW-ALL out
     network 192.168.192.0/24
   exit-address-family

@@ -14,7 +14,6 @@ metadata:
   name: ythryn-lan
   namespace: metallb-system
 spec:
-  bfdProfile: ythryn-lan
   disableMP: false
   myASN: 65024
   peerASN: 65023
