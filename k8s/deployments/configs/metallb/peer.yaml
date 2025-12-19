@@ -1,0 +1,22 @@
+---
+apiVersion: metallb.io/v1beta1
+kind: BFDProfile
+metadata:
+  name: ythryn-lan
+  namespace: metallb-system
+spec:
+  receiveInterval: 100
+  transmitInterval: 100
+---
+apiVersion: metallb.io/v1beta2
+kind: BGPPeer
+metadata:
+  name: ythryn-lan
+  namespace: metallb-system
+spec:
+  bfdProfile: ythryn-lan
+  disableMP: false
+  myASN: 65024
+  peerASN: 65023
+  peerAddress: 192.168.0.1
+  peerPort: 179

@@ -1,5 +1,5 @@
 router bgp 65023
-  bgp router-id 192.168.1.1
+  bgp router-id 192.168.0.1
   timers bgp 3 9
   no bgp ebgp-requires-policy
   no bgp default ipv4-unicast
