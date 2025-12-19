@@ -4,3 +4,4 @@ resources:
   - github.com/metallb/metallb/config/frr?ref=v0.15.3
   - ./address-pool.yaml
   - ./advertisement.yaml
+  - ./peer.yaml
