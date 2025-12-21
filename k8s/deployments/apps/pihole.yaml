@@ -17,7 +17,7 @@ spec:
         releaseName: pihole
         valuesObject:
           capabilities:
-            add: ["CHOWN"]
+            add: ["CAP_CHOWN"]
           persistentVolumeClaim:
             enabled: true
             storageClass: nfs-client
