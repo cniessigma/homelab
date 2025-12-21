@@ -16,7 +16,7 @@ helmCharts:
 - name: pihole
   includeCRDs: false
   valuesInline:
-    replicaCount: 3
+    replicaCount: 1
     # # Can't chown so we need to figure something else out.
     # TODO: Patch the helm template with a securityContext so
     # we can run as non-root and set a fs user
