@@ -13,44 +13,44 @@ generators:
   files:
   - secret.enc.yaml
 
-# helmCharts:
-# - name: harbor
-#   includeCRDs: false
-#   valuesInline:
-#     expose:
-#       type: loadBalancer
-#       loadBalancer:
-#         name: harbor
-#         IP: "192.168.192.100"
-#         ports:
-#           httpPort: 80
-#           httpsPort: 443
-#       tls:
-#         enabled: false
-#     persistentVolumeClaim:
-#       registry:
-#         storageClass: "nfs-client"
-#         accessMode: ReadWriteMany
-#         size: 100Gi
-#       jobservice:
-#         jobLog:
-#           storageClass: "nfs-client"
-#           accessMode: ReadWriteMany
-#           size: 1Gi
-#       database:
-#         storageClass: "nfs-client"
-#         accessMode: ReadWriteMany
-#         size: 1Gi
-#       redis:
-#         existingClaim: ""
-#         storageClass: "nfs-client"
-#         subPath: ""
-#         accessMode: ReadWriteMany
-#         size: 1Gi
-#       trivy:
-#         storageClass: "nfs-client"
-#         accessMode: ReadWriteMany
-#         size: 5Gi
-#   releaseName: harbor
-#   version: v1.18.1
-#   repo: https://helm.goharbor.io
+helmCharts:
+- name: harbor
+  includeCRDs: false
+  valuesInline:
+    expose:
+      type: loadBalancer
+      loadBalancer:
+        name: harbor
+        IP: "192.168.192.100"
+        ports:
+          httpPort: 80
+          httpsPort: 443
+      tls:
+        enabled: false
+    persistentVolumeClaim:
+      registry:
+        storageClass: "nfs-client"
+        accessMode: ReadWriteMany
+        size: 100Gi
+      jobservice:
+        jobLog:
+          storageClass: "nfs-client"
+          accessMode: ReadWriteMany
+          size: 1Gi
+      database:
+        storageClass: "nfs-client"
+        accessMode: ReadWriteMany
+        size: 1Gi
+      redis:
+        existingClaim: ""
+        storageClass: "nfs-client"
+        subPath: ""
+        accessMode: ReadWriteMany
+        size: 1Gi
+      trivy:
+        storageClass: "nfs-client"
+        accessMode: ReadWriteMany
+        size: 5Gi
+  releaseName: harbor
+  version: v1.18.1
+  repo: https://helm.goharbor.io
