@@ -10,8 +10,7 @@ generators:
       config.kubernetes.io/function: |
           exec:
             path: ksops
-  files:
-  - secret.enc.yaml
+  files: []
 
 helmCharts:
 - name: docker-registry
