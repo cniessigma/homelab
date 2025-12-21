@@ -16,6 +16,13 @@ spec:
       helm:
         releaseName: pihole
         valuesObject:
+          serviceDns:
+            type: "LoadBalancer" 
+            loadBalancerIP: "192.168.192.53" 
+            externalTrafficPolicy: "Local"
+          serviceWeb:
+            type: "LoadBalancer" 
+            loadBalancerIP: "192.168.192.54" 
           podDnsConfig:
             enabled: true
             policy: "None"
