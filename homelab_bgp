@@ -1,4 +1,5 @@
 router bgp 65023
+  ! had to use the gateway of the VLAN. Eto bleh.
   bgp router-id 192.168.128.1
   timers bgp 3 9
   no bgp ebgp-requires-policy
