@@ -14,7 +14,7 @@ generators:
   - secret.enc.yaml
 
 helmCharts:
-- name: twuni
+- name: docker-registry
   includeCRDs: false
   valuesInline:
     secrets:
