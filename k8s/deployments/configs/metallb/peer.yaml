@@ -17,5 +17,5 @@ spec:
   disableMP: false
   myASN: 65024
   peerASN: 65023
-  peerAddress: 192.168.0.1
+  peerAddress: 192.168.128.1
   peerPort: 179
