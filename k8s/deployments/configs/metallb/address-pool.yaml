@@ -6,4 +6,4 @@ metadata:
 spec:
   avoidBuggyIPs: true
   addresses:
-    - 192.168.192.0/24
+    - 192.168.128.6-192.168.255.254
