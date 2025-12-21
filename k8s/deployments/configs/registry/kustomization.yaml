@@ -18,7 +18,7 @@ helmCharts:
   includeCRDs: false
   valuesInline:
     secrets:
-      haSharedSecret: registry-htpasswd
+      haSharedSecret: kittycat
     persistence:
       enabled: true
       accessMode: 'ReadWriteMany'
