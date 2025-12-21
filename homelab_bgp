@@ -23,5 +23,5 @@ router bgp 65023
     neighbor homelab activate
     neighbor homelab route-map ALLOW-ALL in
     neighbor homelab route-map ALLOW-ALL out
-    network 192.168.192.0/24
+    network 192.168.128.0/17
   exit-address-family
