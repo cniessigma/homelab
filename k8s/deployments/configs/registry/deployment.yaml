@@ -41,18 +41,18 @@ spec:
             - name: auth
               mountPath: /auth
               readOnly: true
-          livenessProbe:
-            httpGet:
-              path: /v2/
-              port: 5000
-            initialDelaySeconds: 10
-            periodSeconds: 10
-          readinessProbe:
-            httpGet:
-              path: /v2/
-              port: 5000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+          # livenessProbe:
+          #   httpGet:
+          #     path: /v2/
+          #     port: 5000
+          #   initialDelaySeconds: 10
+          #   periodSeconds: 10
+          # readinessProbe:
+          #   httpGet:
+          #     path: /v2/
+          #     port: 5000
+          #   initialDelaySeconds: 5
+          #   periodSeconds: 5
       volumes:
         - name: auth
           secret:
