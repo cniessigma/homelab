@@ -21,7 +21,7 @@ spec:
           #   enabled: true
           #   storageClass: nfs-client
           capabilities:
-            add: ["CAP_SYS_TIME"]
+            add: ["SYS_TIME"]
 
           serviceWeb:
             loadBalancerIP: 192.168.192.53
