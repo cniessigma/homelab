@@ -16,12 +16,10 @@ spec:
       helm:
         releaseName: pihole
         valuesObject:
-          capabilities:
-            add: ["CAP_CHOWN"]
-          persistentVolumeClaim:
-            enabled: true
-            storageClass: nfs-client
-
+          # # Can't chown so we need to figure something else out.
+          # persistentVolumeClaim:
+          #   enabled: true
+          #   storageClass: nfs-client
           serviceWeb:
             loadBalancerIP: 192.168.192.53
             annotations:
