@@ -16,6 +16,8 @@ helmCharts:
 - name: pihole
   includeCRDs: false
   valuesInline:
+    DNS1: "192.168.128.1"
+    DNS2: "1.1.1.1"
     # # Can't chown so we need to figure something else out.
     # TODO: Patch the helm template with a securityContext so
     # we can run as non-root and set a fs user
@@ -40,7 +42,7 @@ helmCharts:
       enabled: true
       policy: "None"
       nameservers:
-      - 192.168.128.1
+      - 127.0.0.1
       - 1.1.1.1
   releaseName: pihole
   version: 2.35.0
