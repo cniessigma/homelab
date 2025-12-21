@@ -3,5 +3,5 @@ helmCharts:
   includeCRDs: false
   valuesInline: {}
   releaseName: harbor
-  version: 2.14.0
+  version: v1.18.1
   repo: https://helm.goharbor.io
