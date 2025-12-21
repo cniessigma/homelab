@@ -48,5 +48,5 @@ helmCharts:
           cpu: 100m
           memory: 128Mi
   releaseName: registry
-  version: v3.0.0
+  version: 3.0.0
   repo: https://twuni.github.io/docker-registry.helm
