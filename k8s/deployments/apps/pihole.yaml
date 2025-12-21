@@ -15,9 +15,9 @@ spec:
       targetRevision: 2.34.0
       helm:
         releaseName: pihole
-        capabilities:
-          add: ["CHOWN", "SYS_TIME"]
         valuesObject:
+          capabilities:
+            add: ["CHOWN", "SYS_TIME"]
           persistentVolumeClaim:
             enabled: true
             storageClass: nfs-client
