@@ -1,16 +1,16 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: smi_ost_bot
+  name: smi-ost-bot
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   destination:
     server: 'https://kubernetes.default.svc'
-    namespace: smi_ost_bot
+    namespace: smi-ost-bot
   project: default
   sources:
-    - path: k8s/deployments/configs/smi_ost_bot
+    - path: k8s/deployments/configs/smi-ost-bot
       repoURL: git@github.com:cniessigma/homelab.git
       targetRevision: HEAD
   syncPolicy:
