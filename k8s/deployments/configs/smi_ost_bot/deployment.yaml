@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: smi_ost_bot
+spec:
+  serviceName: smi_ost_bot
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smi_ost_bot
+  template:
+    metadata:
+      labels:
+        app: smi_ost_bot
+    spec:
+      containers:
+        - name: smi_ost_bot
+          image: docker.nies.io:5000/smi_ost_bot:latest
+          resources:
+            requests:
+              cpu: 500m
+              memory: 500Mi
+            limits:
+              cpu: '1'
+              memory: 1Gi
+          env:
+            - name: DISCORD_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: discord-secrets
+                  key: DISCORD_TOKEN
+          volumeMounts:
+            - name: smi_ost_db
+              mountPath: /app/db
+      volumeClaimTemplates:
+        - metadata:
+            name: smi_ost_db
+          spec:
+            accessModes: [ "ReadWriteMany" ]
+            storageClassName: "nfs-client"
+            resources:
+              requests:
+                storage: 1Gi
