@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: smi-ost-bot
-          image: registry-docker-registry.argocd.svc.cluster.local:5000/smi_ost_bot:latest
+          image: docker.nies.io:5000/smi_ost_bot:latest
           resources:
             requests:
               cpu: 500m
