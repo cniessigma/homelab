@@ -1,8 +1,9 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-resources:
-  - deployment.yaml
+# TODO: Figure out how to tell Talos to not use HTTPS
+# resources:
+  # - deployment.yaml
 
 generators:
 - |-
