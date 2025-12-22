@@ -3,21 +3,65 @@ clusterName: chardalyn
 endpoint: https://elder-brain.chardalyn.nies.io:6443
 kubernetesVersion: v1.30.0
 talosVersion: v1.11.5
-allowSchedulingOnMasters: false
+allowSchedulingOnMasters: true
 nodes:
   - hostname: elder-brain
     controlPlane: true
     ipAddress: 192.168.128.2
     installDisk: /dev/sda
+    patches:
+    - |-
+      machine:
+        registries:
+          config:
+            "docker.nies.io:5000":
+              tls:
+                insecureSkipVerify: true
+            "192.168.192.100:5000":
+              tls:
+                insecureSkipVerify: true
   - hostname: jericho
     controlPlane: false
     ipAddress: 192.168.128.3
     installDisk: /dev/sda
+    patches:
+    - |-
+      machine:
+        registries:
+          config:
+            "docker.nies.io:5000":
+              tls:
+                insecureSkipVerify: true
+            "192.168.192.100:5000":
+              tls:
+                insecureSkipVerify: true
   - hostname: margaret
     controlPlane: false
     ipAddress: 192.168.128.4
     installDisk: /dev/sda
+    patches:
+    - |-
+      machine:
+        registries:
+          config:
+            "docker.nies.io:5000":
+              tls:
+                insecureSkipVerify: true
+            "192.168.192.100:5000":
+              tls:
+                insecureSkipVerify: true
   - hostname: seamus
     controlPlane: false
     ipAddress: 192.168.128.5
     installDisk: /dev/sda
+    patches:
+    - |-
+      machine:
+        registries:
+          config:
+            "docker.nies.io:5000":
+              tls:
+                insecureSkipVerify: true
+            "192.168.192.100:5000":
+              tls:
+                insecureSkipVerify: true
