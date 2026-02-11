@@ -39,7 +39,7 @@ spec:
     spec:
       containers:
         - name: tiermaker-app
-          image: docker.nies.io:5000/tiermaker_app:latest
+          image: docker.nies.io:5000/tiermaker_app:v0.1.0
           resources:
             requests:
               cpu: 250m
