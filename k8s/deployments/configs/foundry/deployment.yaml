@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: foundry-base
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: foundry-worlds
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: foundry-modules
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foundry
+spec:
+  type: ClusterIP
+  selector:
+    app: foundry
+  ports:
+    - name: http
+      port: 30000
+      targetPort: 30000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foundry
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: foundry
+  template:
+    metadata:
+      labels:
+        app: foundry
+    spec:
+      containers:
+        - name: foundry
+          image: felddy/foundryvtt:14.363.0
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "1"
+              memory: 2Gi
+          ports:
+            - name: http
+              containerPort: 30000
+          env:
+            - name: FOUNDRY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secret
+                  key: FOUNDRY_USERNAME
+            - name: FOUNDRY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secret
+                  key: FOUNDRY_PASSWORD
+            - name: FOUNDRY_MINIFY_STATIC_FILES
+              value: "true"
+          volumeMounts:
+            - name: foundry-base
+              mountPath: /data
+            - name: foundry-worlds
+              mountPath: /data/Data/worlds
+            - name: foundry-modules
+              mountPath: /data/Data/modules
+              subPath: modules
+            - name: foundry-modules
+              mountPath: /data/Data/systems
+              subPath: systems
+      volumes:
+        - name: foundry-base
+          persistentVolumeClaim:
+            claimName: foundry-base
+        - name: foundry-worlds
+          persistentVolumeClaim:
+            claimName: foundry-worlds
+        - name: foundry-modules
+          persistentVolumeClaim:
+            claimName: foundry-modules
