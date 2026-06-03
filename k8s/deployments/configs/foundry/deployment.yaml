@@ -36,7 +36,7 @@ kind: Service
 metadata:
   name: foundry
 spec:
-  type: ClusterIP
+  type: LoadBalancer
   selector:
     app: foundry
   ports:
