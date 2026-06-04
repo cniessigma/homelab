@@ -9,6 +9,7 @@ spec:
   restic:
     repository: foundry-restic-secret
     copyMethod: Direct
+    cacheStorageClassName: nfs-client
     pruneIntervalDays: 7
     retain:
       hourly: 24
@@ -27,6 +28,7 @@ spec:
   restic:
     repository: foundry-restic-secret
     copyMethod: Direct
+    cacheStorageClassName: nfs-client
     pruneIntervalDays: 7
     retain:
       hourly: 24
@@ -45,6 +47,7 @@ spec:
   restic:
     repository: foundry-restic-secret
     copyMethod: Direct
+    cacheStorageClassName: nfs-client
     pruneIntervalDays: 7
     retain:
       hourly: 24
