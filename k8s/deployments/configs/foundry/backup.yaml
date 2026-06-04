@@ -1,56 +1,56 @@
-# apiVersion: volsync.backube/v1alpha1
-# kind: ReplicationSource
-# metadata:
-#   name: foundry-worlds-backup
-# spec:
-#   sourcePVC: foundry-worlds
-#   trigger:
-#     schedule: "0 * * * *"
-#   restic:
-#     repository: foundry-restic-secret
-#     copyMethod: Direct
-#     cacheStorageClassName: nfs-client
-#     pruneIntervalDays: 7
-#     retain:
-#       hourly: 24
-#       daily: 30
-#       weekly: 26
-#       monthly: 12
-# ---
-# apiVersion: volsync.backube/v1alpha1
-# kind: ReplicationSource
-# metadata:
-#   name: foundry-modules-backup
-# spec:
-#   sourcePVC: foundry-modules
-#   trigger:
-#     schedule: "30 * * * *"
-#   restic:
-#     repository: foundry-restic-secret
-#     copyMethod: Direct
-#     cacheStorageClassName: nfs-client
-#     pruneIntervalDays: 7
-#     retain:
-#       hourly: 24
-#       daily: 30
-#       weekly: 26
-#       monthly: 12
-# ---
-# apiVersion: volsync.backube/v1alpha1
-# kind: ReplicationSource
-# metadata:
-#   name: foundry-base-backup
-# spec:
-#   sourcePVC: foundry-base
-#   trigger:
-#     schedule: "15 * * * *"
-#   restic:
-#     repository: foundry-restic-secret
-#     copyMethod: Direct
-#     cacheStorageClassName: nfs-client
-#     pruneIntervalDays: 7
-#     retain:
-#       hourly: 24
-#       daily: 30
-#       weekly: 26
-#       monthly: 12
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-worlds-backup
+spec:
+  sourcePVC: foundry-worlds
+  trigger:
+    schedule: "0 * * * *"
+  restic:
+    repository: foundry-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-modules-backup
+spec:
+  sourcePVC: foundry-modules
+  trigger:
+    schedule: "30 * * * *"
+  restic:
+    repository: foundry-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-base-backup
+spec:
+  sourcePVC: foundry-base
+  trigger:
+    schedule: "15 * * * *"
+  restic:
+    repository: foundry-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
