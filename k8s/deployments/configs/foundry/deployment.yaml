@@ -87,6 +87,11 @@ spec:
                 secretKeyRef:
                   name: foundry-secret
                   key: FOUNDRY_LICENSE_KEY
+            - name: FOUNDRY_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: foundry-secret
+                  key: FOUNDRY_ADMIN_KEY
             - name: FOUNDRY_MINIFY_STATIC_FILES
               value: "true"
           volumeMounts:
