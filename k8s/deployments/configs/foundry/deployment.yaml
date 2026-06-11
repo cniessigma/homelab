@@ -29,7 +29,7 @@ spec:
   storageClassName: "nfs-client"
   resources:
     requests:
-      storage: 10Gi
+      storage: 75Gi
 ---
 apiVersion: v1
 kind: Service
