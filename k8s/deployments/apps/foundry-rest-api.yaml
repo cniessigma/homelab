@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: foundry-rest-api
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: foundry-rest-api
+  project: default
+  sources:
+    - path: k8s/deployments/configs/foundry-rest-api
+      repoURL: git@github.com:cniessigma/homelab.git
+      targetRevision: HEAD
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated:
+      prune: true
+      selfHeal: true

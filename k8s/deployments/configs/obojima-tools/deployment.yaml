@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: obojima-tools
+spec:
+  type: ClusterIP
+  selector:
+    app: obojima-tools
+  ports:
+    - name: http
+      port: 8787
+      targetPort: 8787
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obojima-tools
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obojima-tools
+  template:
+    metadata:
+      labels:
+        app: obojima-tools
+    spec:
+      containers:
+        - name: obojima-tools
+          # Replace the tag on every release. Do not use `latest`.
+          image: docker.nies.io:5000/obojima-tools:v0.1.0
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 384Mi
+          ports:
+            - name: http
+              containerPort: 8787
+          env:
+            - name: FOUNDRY_RELAY_URL
+              value: "http://foundry-rest-api.foundry-rest-api.svc.cluster.local:3010"
+            - name: FOUNDRY_WORLD_ID
+              value: "obojima-spirit-of-worlds-machine"
+          envFrom:
+            # Holds FOUNDRY_RELAY_API_KEY, FOUNDRY_ALCHEMIST_ACTOR_UUID and
+            # OBOJIMA_GM_TOKEN. Every screen that returns campaign data needs
+            # the GM token once the pod is reachable from anywhere but loopback.
+            - secretRef:
+                name: obojima-tools-secret
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30

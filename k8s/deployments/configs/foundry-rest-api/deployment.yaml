@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: foundry-rest-api-data
+spec:
+  accessModes: ["ReadWriteMany"]
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: foundry-rest-api
+spec:
+  # The Foundry REST module runs in a GM's browser, not in the Foundry pod, so
+  # the relay must be reachable from that browser. Change to LoadBalancer (or
+  # add an ingress) once the LAN address is decided.
+  type: ClusterIP
+  selector:
+    app: foundry-rest-api
+  ports:
+    - name: http
+      port: 3010
+      targetPort: 3010
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: foundry-rest-api
+spec:
+  replicas: 1
+  strategy:
+    # The relay keeps its state in one SQLite file. The volume is ReadWriteMany
+    # to match the rest of the cluster, so Recreate is what actually stops two
+    # pods writing to that file during a rollout.
+    type: Recreate
+  selector:
+    matchLabels:
+      app: foundry-rest-api
+  template:
+    metadata:
+      labels:
+        app: foundry-rest-api
+    spec:
+      containers:
+        - name: relay
+          # Pinned. Do not use `latest` in a committed manifest.
+          image: threehats/foundryvtt-rest-api-relay:3.4.1
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          ports:
+            - name: http
+              containerPort: 3010
+          env:
+            - name: DB_TYPE
+              value: "sqlite"
+            - name: APP_ENV
+              value: "production"
+            - name: PORT
+              value: "3010"
+          envFrom:
+            - secretRef:
+                name: foundry-rest-api-secret
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          # TCP probes are used because the relay's HTTP health path has not
+          # been confirmed against a running pod yet. Once `GET /health` is
+          # verified to return 200 without an API key, swap both probes to
+          # httpGet: { path: /health, port: http }.
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: foundry-rest-api-data
