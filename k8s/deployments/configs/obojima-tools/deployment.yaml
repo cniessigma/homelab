@@ -3,6 +3,9 @@ kind: Service
 metadata:
   name: obojima-tools
 spec:
+  # Reached through the Cloudflare tunnel at https://obojima.nies.io with an
+  # Access application in front, the same way argocd.nies.io works. Access is
+  # the outer gate; OBOJIMA_GM_TOKEN in obojima-tools-secret is the inner one.
   type: ClusterIP
   selector:
     app: obojima-tools
@@ -25,8 +28,22 @@ spec:
       labels:
         app: obojima-tools
     spec:
+      # Satisfies the PodSecurity "restricted" profile. runAsUser is stated
+      # explicitly because the image's USER is the name `node`, and
+      # runAsNonRoot cannot verify a non-numeric user on its own. 1000 is the
+      # uid the container already runs as.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: obojima-tools
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           # Replace the tag on every release. Do not use `latest`.
           image: docker.nies.io:5000/obojima-tools:v0.1.0
           resources:

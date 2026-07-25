@@ -14,9 +14,14 @@ kind: Service
 metadata:
   name: foundry-rest-api
 spec:
-  # The Foundry REST module runs in a GM's browser, not in the Foundry pod, so
-  # the relay must be reachable from that browser. Change to LoadBalancer (or
-  # add an ingress) once the LAN address is decided.
+  # Deliberately not a LoadBalancer. Browsers reach the relay through the
+  # Cloudflare tunnel at wss://relay.nies.io, with an Access application in
+  # front, and cloudflared resolves this Service from inside the cluster.
+  #
+  # A LAN address here would publish POST /auth/register, which is
+  # unauthenticated and only rate limited. Anyone on the LAN could register an
+  # account, mint a scoped key, and gain full Foundry CRUD. Use
+  # `kubectl port-forward` for administration instead.
   type: ClusterIP
   selector:
     app: foundry-rest-api
@@ -44,8 +49,23 @@ spec:
       labels:
         app: foundry-rest-api
     spec:
+      # Satisfies the PodSecurity "restricted" profile. runAsUser is stated
+      # explicitly because the image's USER is the name `appuser`, and
+      # runAsNonRoot cannot verify a non-numeric user on its own. 1001 is the
+      # uid the container already runs as, so this asserts current behaviour
+      # rather than changing it.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: relay
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           # Built from upstream source for arm64 and published to the local
           # registry. Upstream publishes linux/amd64 only, for every tag,
           # because its runtime stage installs Google Chrome and Chrome has no

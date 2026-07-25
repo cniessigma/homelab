@@ -36,7 +36,9 @@ There is no dashboard in this build, and every API route rejects an unscoped
 key. Both steps are plain HTTP:
 
 ```bash
-RELAY=http://<relay-address>:3010
+# Administration goes through a port-forward; the Service is ClusterIP.
+#   kubectl port-forward -n foundry-rest-api svc/foundry-rest-api 3010:3010
+RELAY=http://localhost:3010
 
 # 1. Register. Returns a sessionToken, not an API key.
 TOKEN=$(curl -s -X POST $RELAY/auth/register \
@@ -53,17 +55,58 @@ curl -s -X POST $RELAY/auth/api-keys \
 ```
 
 That key is `FOUNDRY_RELAY_API_KEY` in `obojima-tools-secret`. It is an
-unrestricted Foundry CRUD credential for those scopes: keep it out of browsers
-and do not expose the relay publicly.
+unrestricted Foundry CRUD credential for those scopes, so it must never reach a
+browser bundle. `obojima-tools` holds it server side and exposes only its own
+narrow API.
+
+The relay is reachable from the internet through the Cloudflare tunnel, so the
+Access application in front of it is what keeps that public hostname from being
+an open door. Do not remove it.
+
+## How the relay is reached
+
+| Caller | Address | Why |
+| --- | --- | --- |
+| Foundry REST module, in a GM's browser | `wss://relay.nies.io` through the Cloudflare tunnel | The browser loads Foundry over HTTPS, and a page served over HTTPS cannot open a plaintext `ws://` socket |
+| `obojima-tools` pod | `http://foundry-rest-api.foundry-rest-api.svc.cluster.local:3010` | Stays inside the cluster, so it never touches Cloudflare and needs no service token |
+| Administration, such as minting a key | `kubectl port-forward` | Deliberate: see below |
+
+The Service is **ClusterIP on purpose**. `POST /auth/register` is
+unauthenticated and only rate limited, so any LAN address for this relay would
+let anyone on the network register an account, mint a scoped key, and gain full
+Foundry CRUD. Cloudflare Access is what stands in front of that endpoint, and a
+LoadBalancer would route around it.
+
+For the same reason, do not create a private DNS record pointing at the pod or
+a node. Split-horizon DNS would also break `wss://`, because a bare address has
+no certificate.
+
+Once the key exists, set `DISABLE_REGISTRATION=true` in the deployment
+environment to close registration entirely.
+
+### Cloudflare setup
+
+The tunnel is remotely managed: `cloudflared` runs with `TUNNEL_TOKEN` and no
+config argument, so `config.yaml` in that directory is ignored and ingress
+rules live in the Zero Trust dashboard. Add there:
+
+- a public hostname `relay.nies.io` pointing at
+  `http://foundry-rest-api.foundry-rest-api.svc.cluster.local:3010`;
+- an Access application in front of it, as `argocd.nies.io` has.
+
+**Authenticate the browser before the module connects.** Access protects the
+WebSocket handshake as well as ordinary pages. If the browser has no
+`CF_Authorization` cookie for `relay.nies.io`, the handshake is redirected to
+the Access login and the module reports a failed connection rather than a
+login prompt. Visit `https://relay.nies.io` once in the same browser first.
 
 ## The bridge only works while a world client is connected
 
 The Foundry REST module runs in a **user's browser**, not in the Foundry pod. So
 the relay must be reachable from whichever browser has the world open, and the
-bridge is down whenever no such browser is connected.
-
-The Service is `ClusterIP`. Change the type or add an ingress before the module
-can reach it.
+bridge is down whenever no such browser is connected. `obojima-tools` shows this
+as `Foundry offline` and refuses writes; it never treats a cached read as
+authoritative.
 
 ## Secrets
 
