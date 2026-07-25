@@ -9,8 +9,52 @@ Foundry module and without touching Foundry's database files.
 - Module manifest, for Foundry's install-by-manifest flow:
   `https://github.com/ThreeHats/foundryvtt-rest-api/releases/latest/download/module.json`
 
-The image is pinned. Check the upstream changelog before moving it, because the
-module and relay versions are expected to match.
+## The image is built here, not pulled from upstream
+
+Upstream publishes **linux/amd64 only**, for all 81 tags. Its runtime stage
+installs Google Chrome from an `arch=amd64` apt source, and Chrome has no arm64
+Linux build. Chrome is only there to drive headless Foundry sessions.
+
+This cluster is all arm64, so the image is rebuilt from upstream source with
+Chrome and the web frontend removed, and pushed to `docker.nies.io:5000`. The
+Dockerfile and the `make relay-push` target live in the `obojima-tools`
+repository, normally at `~/obojima_tools`.
+
+What that costs:
+
+- headless Foundry sessions do not work. This campaign does not use them; the
+  world client is a GM's own browser.
+- there is no web admin UI. Mint API keys over HTTP, as below.
+
+Check the upstream changelog before moving the version, because the module and
+relay versions are expected to match. Then run `make relay-push
+RELAY_VERSION=<new>` and update the `image:` line here.
+
+## Minting an API key
+
+There is no dashboard in this build, and every API route rejects an unscoped
+key. Both steps are plain HTTP:
+
+```bash
+RELAY=http://<relay-address>:3010
+
+# 1. Register. Returns a sessionToken, not an API key.
+TOKEN=$(curl -s -X POST $RELAY/auth/register \
+  -H 'content-type: application/json' \
+  -d '{"email":"gm@example.com","password":"<a long password>"}' \
+  | jq -r .sessionToken)
+
+# 2. Create a scoped key. `obojima-tools` needs exactly these scopes.
+curl -s -X POST $RELAY/auth/api-keys \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name":"obojima-tools","scopes":["entity:read","entity:write","search","clients:read","chat:write","dnd5e"]}' \
+  | jq -r .key
+```
+
+That key is `FOUNDRY_RELAY_API_KEY` in `obojima-tools-secret`. It is an
+unrestricted Foundry CRUD credential for those scopes: keep it out of browsers
+and do not expose the relay publicly.
 
 ## The bridge only works while a world client is connected
 

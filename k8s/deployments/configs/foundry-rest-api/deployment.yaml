@@ -46,8 +46,12 @@ spec:
     spec:
       containers:
         - name: relay
-          # Pinned. Do not use `latest` in a committed manifest.
-          image: threehats/foundryvtt-rest-api-relay:3.4.1
+          # Built from upstream source for arm64 and published to the local
+          # registry. Upstream publishes linux/amd64 only, for every tag,
+          # because its runtime stage installs Google Chrome and Chrome has no
+          # arm64 Linux build. `make relay-push` in the obojima-tools
+          # repository rebuilds this. Pinned; do not use `latest`.
+          image: docker.nies.io:5000/foundryvtt-rest-api-relay:3.4.1-arm64
           resources:
             requests:
               cpu: 100m
@@ -71,10 +75,10 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /app/data
-          # TCP probes are used because the relay's HTTP health path has not
-          # been confirmed against a running pod yet. Once `GET /health` is
-          # verified to return 200 without an API key, swap both probes to
-          # httpGet: { path: /health, port: http }.
+          # TCP probes are correct here: the relay has no health route. A
+          # `GET /health` returns 404, and every API route needs a scoped API
+          # key, so there is nothing to probe over HTTP without embedding a
+          # credential in the manifest.
           readinessProbe:
             tcpSocket:
               port: http
