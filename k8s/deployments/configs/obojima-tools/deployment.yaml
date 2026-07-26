@@ -58,7 +58,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           # Replace the tag on every release. Do not use `latest`.
-          image: docker.nies.io:5000/obojima-tools:v0.4.0
+          image: docker.nies.io:5000/obojima-tools:v0.4.1
           resources:
             requests:
               cpu: 50m
