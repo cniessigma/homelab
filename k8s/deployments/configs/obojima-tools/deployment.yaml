@@ -28,6 +28,8 @@ spec:
       labels:
         app: obojima-tools
     spec:
+      # This application never calls the Kubernetes API.
+      automountServiceAccountToken: false
       # Satisfies the PodSecurity "restricted" profile. runAsUser is stated
       # explicitly because the image's USER is the name `node`, and
       # runAsNonRoot cannot verify a non-numeric user on its own. 1000 is the
@@ -45,7 +47,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           # Replace the tag on every release. Do not use `latest`.
-          image: docker.nies.io:5000/obojima-tools:v0.1.0
+          image: docker.nies.io:5000/obojima-tools:v0.1.1
           resources:
             requests:
               cpu: 50m
