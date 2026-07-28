@@ -58,7 +58,7 @@ spec:
             capabilities:
               drop: ["ALL"]
           # Replace the tag on every release. Do not use `latest`.
-          image: docker.nies.io:5000/obojima-tools:v0.5.2
+          image: docker.nies.io:5000/obojima-tools:v0.6.0
           resources:
             requests:
               cpu: 50m
@@ -74,6 +74,11 @@ spec:
               value: "http://foundry-rest-api.foundry-rest-api.svc.cluster.local:3010"
             - name: FOUNDRY_WORLD_ID
               value: "obojima-spirit-of-worlds-machine"
+            # Where a Foundry browser should connect. Not the same as
+            # FOUNDRY_RELAY_URL above: this pod reaches the relay over internal
+            # DNS that no browser can resolve.
+            - name: FOUNDRY_RELAY_PUBLIC_URL
+              value: "https://relay.nies.io"
             # The image directory is root-owned and the process runs as uid
             # 1000, so the GM's actor choice is written to a volume instead.
             - name: OBOJIMA_CONFIG_PATH
