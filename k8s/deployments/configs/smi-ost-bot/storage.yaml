@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: smi-ost-bot-local
+spec:
+  capacity:
+    storage: 1Gi
+  volumeMode: Filesystem
+  accessModes: [ "ReadWriteOnce" ]
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  local:
+    path: /var/lib/kubelet/smi-ost-bot
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: kubernetes.io/hostname
+              operator: In
+              values: [ "jericho" ]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smi-ost-db-local
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  storageClassName: ""
+  volumeName: smi-ost-bot-local
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: smi-ost-backups
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false
+spec:
+  accessModes: [ "ReadWriteMany" ]
+  storageClassName: "nfs-client"
+  resources:
+    requests:
+      storage: 2Gi

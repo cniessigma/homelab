@@ -3,6 +3,8 @@ kind: Kustomization
 
 resources:
   - deployment.yaml
+  - storage.yaml
+  - backup.yaml
 
 generators:
 - |-
@@ -16,4 +18,10 @@ generators:
             path: ksops
   files:
     - secret.enc.yaml
+    - restic-secret.enc.yaml
 
+
+configMapGenerator:
+  - name: smi-ost-backup-script
+    files:
+      - backup.py

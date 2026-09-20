@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: smi-ost-bot
-          image: docker.nies.io:5000/smi_ost_bot:latest
+          image: docker.nies.io:5000/smi_ost_bot@sha256:27305c32bd1fd7d1823c90118c1178bdfddfad69dd5cdaebc7e9c7bec1ae4f59
           resources:
             requests:
               cpu: 500m
@@ -30,8 +30,36 @@ spec:
                   name: discord-secrets
                   key: DISCORD_TOKEN
           volumeMounts:
-            - name: smi-ost-db
+            - name: database
               mountPath: /app/db
+        - name: backup
+          image: python:3.13-alpine@sha256:1a63a53928ce53d2b0baf08092a703f4840ac5dfbd61fd48802dbf48e08c801e
+          command: [ "python", "-u", "/scripts/backup.py" ]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: database
+              mountPath: /data
+            - name: backups
+              mountPath: /backups
+            - name: backup-script
+              mountPath: /scripts
+              readOnly: true
+      volumes:
+        - name: database
+          persistentVolumeClaim:
+            claimName: smi-ost-db-local
+        - name: backups
+          persistentVolumeClaim:
+            claimName: smi-ost-backups
+        - name: backup-script
+          configMap:
+            name: smi-ost-backup-script
   volumeClaimTemplates:
     - metadata:
         name: smi-ost-db

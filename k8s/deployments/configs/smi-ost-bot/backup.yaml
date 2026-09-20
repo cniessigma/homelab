@@ -1,0 +1,18 @@
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: smi-ost-backup
+spec:
+  sourcePVC: smi-ost-backups
+  trigger:
+    schedule: "45 * * * *"
+  restic:
+    repository: smi-ost-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
