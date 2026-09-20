@@ -74,6 +74,11 @@ command in Discord. Layouts, metadata, image uploads and song ratings are stored
 in the existing SQLite database and included in its online snapshots. No new
 Service, Access application or storage claim is required.
 
+The same page imports public/unlisted YouTube playlists and generates captioned
+song cards in the browser. The image includes a pinned `yt-dlp` for metadata
+lookup; the bot's existing outbound Internet access is sufficient. Imports do
+not download audio/video. Generated PNGs use the existing database image storage.
+
 The bot image embeds a private console at `https://ost-admin.nies.io`, served
 on port 8080 in the existing bot container. `admin.yaml` defines a ClusterIP
 Service; `kustomization.yaml` generates the two non-secret Cloudflare Access
