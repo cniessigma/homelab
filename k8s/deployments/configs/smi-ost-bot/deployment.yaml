@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: smi-ost-bot
-          image: docker.nies.io:5000/smi_ost_bot@sha256:27305c32bd1fd7d1823c90118c1178bdfddfad69dd5cdaebc7e9c7bec1ae4f59
+          image: docker.nies.io:5000/smi_ost_bot@sha256:ddedaf1a3d3aafc9fd3e30021c5b393ea6d85208744b30533bfa97c229d46857
           resources:
             requests:
               cpu: 500m
@@ -23,7 +23,15 @@ spec:
             limits:
               cpu: '1'
               memory: 1Gi
+          ports:
+            - name: admin
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: smi-ost-admin-access
           env:
+            - name: ADMIN_ADDR
+              value: ":8080"
             - name: DISCORD_TOKEN
               valueFrom:
                 secretKeyRef:

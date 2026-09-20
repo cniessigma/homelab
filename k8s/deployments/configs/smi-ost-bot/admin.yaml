@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smi-ost-bot
+spec:
+  # Cloudflare Tunnel is the only public route to the admin console.
+  type: ClusterIP
+  selector:
+    app: smi-ost-bot
+  ports:
+    - name: admin
+      port: 8080
+      targetPort: admin

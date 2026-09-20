@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - deployment.yaml
+  - admin.yaml
   - storage.yaml
   - backup.yaml
 
@@ -22,6 +23,11 @@ generators:
 
 
 configMapGenerator:
+  - name: smi-ost-admin-access
+    literals:
+      # Dedicated ost-admin.nies.io Access application; identifiers are not secrets.
+      - ADMIN_CF_ISSUER=https://cniessigma.cloudflareaccess.com
+      - ADMIN_CF_AUDIENCE=335caff342b92e06c55e6b934ec701590d8225a7962dcc650ea1881c6d9c4c50
   - name: smi-ost-backup-script
     files:
       - backup.py

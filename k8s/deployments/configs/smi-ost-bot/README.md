@@ -65,3 +65,49 @@ SQLite's backup API produced an integrity-checked copy containing 16 submissions
 homelab NFS claim `smi-ost-db-smi-ost-bot-0` and immutable claim template are kept
 for rollback; that volume is no longer mounted by the bot. A trailing whitespace
 character was removed from the Discord token and the corrected secret encrypted.
+
+## Admin console
+
+The bot image embeds a private console at `https://ost-admin.nies.io`, served
+on port 8080 in the existing bot container. `admin.yaml` defines a ClusterIP
+Service; `kustomization.yaml` generates the two non-secret Cloudflare Access
+identifiers. The configured application admits the account in the existing
+Homelab policy. Clearing both values locks the console with HTTP 503 while
+the Discord bot continues operating. Changes to these generated
+ConfigMap values automatically trigger a pod rollout via Kustomize’s name hash.
+
+Cloudflare Tunnel is remotely managed, so its public hostname and Access
+application must be configured in Zero Trust (the repository's cloudflared
+config does not control routes):
+
+1. Create a self-hosted Access application for **ost-admin.nies.io**, with an
+   Allow policy restricted to the admin account. Do not use a Bypass policy.
+2. Copy its Audience (AUD) and team domain into `ADMIN_CF_AUDIENCE` and
+   `ADMIN_CF_ISSUER` in `kustomization.yaml`. The issuer is
+   `https://<team>.cloudflareaccess.com`, without a path.
+3. Add a tunnel public hostname for **ost-admin.nies.io** pointing to
+   `http://smi-ost-bot.smi-ost-bot.svc.cluster.local:8080`.
+4. Build the bot's linux/arm64 image, push to `docker.nies.io:5000`, and pin its
+   digest in `deployment.yaml`. Commit/push the manifests and let Argo reconcile.
+5. Verify Argo is Synced/Healthy at the intended revision, `/healthz` responds,
+   requests without an Access JWT are rejected, and the authenticated console
+   loads. Verify the next SQLite snapshot and VolSync sync after the rollout.
+
+The application independently validates the Access JWT and prevents cross-site
+mutations. Only users admitted by this dedicated application have admin rights.
+A future public site should have its own hostname and Access audience; never
+reuse the admin audience. Keep this Service private to the cluster.
+
+Admin deletions cascade to votes and create an `admin_events` audit record with
+the authenticated email and full pre-change submission/vote JSON in the same
+transaction. The existing backup sidecar automatically includes this table in
+snapshots. The UI shows the most recent 50 actions per server; audit records are
+retained indefinitely. Removing a vote does not ban the voter, and recovery is
+an explicit database maintenance operation, not an undo button.
+
+Cloudflare setup completed on 2026-09-20: Access application
+`f1ca0bfe-6802-4898-a43e-cf9546921660` uses the existing admin-only Homelab policy.
+The Homelab tunnel also requires a valid token for this application's audience
+before forwarding requests to the bot. The hostname is a proxied CNAME to that
+tunnel. Changes to Cloudflare routing and Access are managed through its API,
+while Kubernetes deployments remain GitOps-managed.
