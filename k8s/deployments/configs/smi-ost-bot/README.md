@@ -68,6 +68,12 @@ character was removed from the Discord token and the corrected secret encrypted.
 
 ## Admin console
 
+The host's soundtrack tier boards are at `https://ost-admin.nies.io/ranking/`
+under the same Access policy. Participants vote through the bot's `/rate-song`
+command in Discord. Layouts, metadata, image uploads and song ratings are stored
+in the existing SQLite database and included in its online snapshots. No new
+Service, Access application or storage claim is required.
+
 The bot image embeds a private console at `https://ost-admin.nies.io`, served
 on port 8080 in the existing bot container. `admin.yaml` defines a ClusterIP
 Service; `kustomization.yaml` generates the two non-secret Cloudflare Access
