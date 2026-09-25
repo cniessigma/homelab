@@ -36,6 +36,7 @@ This repo manages a Talos-based Raspberry Pi Kubernetes homelab using GitOps (Ar
 - Keep plaintext secret values out of tool output, logs, and chat. Process them locally without printing values, and persist repository changes only as SOPS-encrypted files.
 
 ## SMI OST Bot Storage and Backups
+- Application code and product context live in `cniessigma/smi_ost_bot` (`~/smi_ost_bot` locally). See that repo's `AGENTS.md` and [project context](https://github.com/cniessigma/smi_ost_bot/blob/main/docs/PROJECT_CONTEXT.md) when working on bot or ranking UI behavior.
 - The bot uses SQLite WAL mode. Keep the live database on local storage, not NFS.
 - The current database PVC is `smi-ost-db-local`, backed by a local PV on `jericho` at `/var/lib/kubelet/smi-ost-bot`. This survives reboots but depends on that node's disk and is lost if its Talos EPHEMERAL partition is wiped. Node replacement requires a restore; there is no automatic storage failover.
 - The `backup.py` sidecar uses SQLite's online backup API, verifies integrity, and publishes hourly timestamped snapshots to the NFS PVC `smi-ost-backups`, retaining 30 days.

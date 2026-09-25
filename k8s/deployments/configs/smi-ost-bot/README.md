@@ -1,5 +1,9 @@
 # SMI OST bot
 
+Application architecture, product decisions and development handoff are in the
+[SMI OST Bot project context](https://github.com/cniessigma/smi_ost_bot/blob/main/docs/PROJECT_CONTEXT.md).
+This document covers the homelab deployment and recovery.
+
 The single StatefulSet replica runs the pinned bot image with its database on
 `smi-ost-db-local`. The local PV is bound to `jericho`, at
 `/var/lib/kubelet/smi-ost-bot` on Talos's persistent EPHEMERAL partition. This
