@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: smi-ost-bot
-          image: docker.nies.io:5000/smi_ost_bot@sha256:2c1f2c6950a813f0a3a30964067d8f3d273f6c6be55e3c3bc030e58a3378096b
+          image: docker.nies.io:5000/smi_ost_bot@sha256:24402f1dd6cbc20b4fbd943902e7dfbd85a8f2fcd1cde843896a2c4431c08194
           resources:
             requests:
               cpu: 500m
