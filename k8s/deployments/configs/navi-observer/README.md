@@ -1,47 +1,64 @@
 # Navi's Obojima rollout observer
 
-This is a **read-only Obojima observer**, not general cluster administration.
-The dedicated Argo CD Application manages the ServiceAccount and RoleBindings
-through GitOps. No credentials, token Secrets, pods, or ClusterRoleBindings are
-created by these manifests.
+A **read-only Obojima observer**, not general cluster administration. Authentication
+uses a dedicated **long-lived, revocable credential**, bootstrapped once. Navi's
+Mac can then observe rollouts without recurring token issuance from a laptop.
 
-## Permission boundary
+## Permission boundary (unchanged)
 
 Identity: `system:serviceaccount:navi-observer:navi-observer`.
 
-- In `obojima-tools`, read/list/watch Pods and ReplicaSets. These dynamic names
-  are namespace-scoped; Kubernetes RBAC does not restrict this access by an
-  `app` label, so all Pods and ReplicaSets in this namespace are readable.
-- In `obojima-tools`, read/list/watch only the Deployment named `obojima-tools`.
-- In `argocd`, read/list/watch only the Application named `obojima-tools`.
-- No Secrets, ConfigMaps, logs, exec, attach, port-forward, workload writes,
-  node resources/proxies, RBAC changes, or token minting permissions are granted.
-  Ordinary authenticated API discovery/self-access checks may be available
-  through Kubernetes' existing default bindings; there is no blanket `view` role.
-- The ServiceAccount has `automountServiceAccountToken: false`. It has no
-  self-renewal permission. An administrator must issue each expiring token.
+- In `obojima-tools`, read/list/watch Pods and ReplicaSets. Dynamic names require
+  namespace-wide reads; labels are not a Kubernetes RBAC boundary, so every Pod
+  and ReplicaSet in this namespace is readable.
+- Read/list/watch only the Deployment named `obojima-tools` in `obojima-tools`
+  and the Application named `obojima-tools` in `argocd`.
+- No Secrets/ConfigMaps, logs, exec, attach, port-forward, workload writes, node
+  APIs/proxies, RBAC changes, or credential self-management permissions are
+  granted. Ordinary authenticated discovery/self-access checks may be available
+  through existing Kubernetes defaults; there is no blanket `view` binding.
+- `automountServiceAccountToken: false` remains set. The observer cannot read,
+  replace, or create the credential Secret; its one-time export requires admin
+  access. A longer credential lifetime does not broaden its resource permissions.
 
-For the two name-restricted resource kinds, use `get <kind> obojima-tools`.
-A list/watch must include `--field-selector=metadata.name=obojima-tools`; listing
-all Applications or Deployments is intentionally denied. Listing Pods and
-ReplicaSets needs no name selector.
+Use `get <kind> obojima-tools` for the two name-restricted resources. Their
+list/watch calls require `--field-selector=metadata.name=obojima-tools`.
+Pod/ReplicaSet collection requests need no name selector.
 
-This does not grant Cloudflare Access/browser login, HTTP proxying into pods,
-Talos API access, SSH, or access to other applications. Inspecting rollout and
-image IDs through Kubernetes does not require those permissions. Live protected
-UI checks still need a separately authorized application session.
+This does not grant Cloudflare/browser login, Talos administration, SSH, access
+to other applications, or HTTP proxying into pods. Kubernetes rollout inspection
+does not need those permissions; protected UI checks need a separate session.
 
-## Bootstrap: merge/sync, then mint on an administrator's machine
+## GitOps-managed identity and credential object
 
-Preparing the PR does not provision access. Once its merge is explicitly
-approved, the existing `app-of-apps` discovers `navi-observer`. Argo creates its
-namespace and reconciles the account plus Roles/RoleBindings in the existing
-`obojima-tools` and `argocd` namespaces. Do not bypass GitOps with `kubectl apply`.
-Confirm `navi-observer` is Synced/Healthy and its resources exist before minting.
-The normal Argo project/controller must be allowed to reconcile namespaced RBAC.
+The dedicated `navi-observer` Argo Application creates the identity namespace,
+account, namespaced Roles/RoleBindings, and one **metadata-only** Secret:
+`navi-observer/navi-observer-credential`, type
+`kubernetes.io/service-account-token`. The Secret's ServiceAccount annotation
+lets Kubernetes' token controller populate its credential in the live cluster.
+Sync wave 1 creates it after the account. Never put `data` or `stringData` in the
+manifest or commit a populated live Secret export.
 
-On a workstation with Python 3, `kubectl` supporting `create token`, and an
-existing authorized admin context, run from this repository:
+Argo ignores only this exact Secret's generated `/data` and ServiceAccount UID
+annotation. `RespectIgnoreDifferences=true` preserves them during normal syncs.
+The Secret is deliberately not listed in `ServiceAccount.secrets`, which would
+classify it as an automatically generated legacy credential subject to cleanup.
+
+This long-lived credential has no scheduled expiry; if leaked, it remains useful
+until revoked. It stays limited to the reads above. Treat its local kubeconfig
+as a password, even on the private network. No credential values are stored in
+Git or chat, and no renewal daemon is needed.
+
+## One-time bootstrap on an administrator's machine
+
+**PR preparation does not provision access.** After explicit merge approval,
+let the existing app-of-apps discover and sync `navi-observer`. Confirm that
+Argo is Synced/Healthy and allow the token controller to populate the Secret.
+Do not bypass GitOps with `kubectl apply`. The Argo project/controller must be
+allowed to reconcile namespaced RBAC and this Secret.
+
+On a trusted workstation with Python 3, `kubectl`, and an existing authorized
+admin context, run from this repository:
 
 ```sh
 python3 scripts/mint-observer-kubeconfig.py \
@@ -49,40 +66,34 @@ python3 scripts/mint-observer-kubeconfig.py \
   --output "$HOME/.kube/homelab-observer.yaml"
 ```
 
-If the admin context is in a separate file, also provide
+If the admin context is in a separate file, add
 `--admin-kubeconfig /path/to/admin-kubeconfig`.
 
-The helper:
+Despite its retained filename, the helper now **exports** the existing durable
+credential: it does not create a TokenRequest or write any cluster resource.
+It reads only the specified admin context locally and the exact named Secret
+through the authenticated API, checks the Secret's identity/type/controller
+metadata, then writes a new mode-0600 observer kubeconfig. It copies only the
+HTTPS endpoint, embedded trusted cluster CA, optional TLS name, and observer
+token—not administrator authentication, private keys, client certificates,
+exec plugins, or arbitrary Secret data. New output directories are private.
 
-- Uses the specified context explicitly, without changing the current context
-  or writing to the admin kubeconfig.
-- Carries over only the HTTPS server, embedded cluster CA, and optional TLS
-  server name. It refuses insecure TLS/proxy configuration and never copies
-  administrator users, private keys, client certificates, or exec plugins.
-- Requests a **one-hour** TokenRequest for this ServiceAccount. Kubernetes may
-  adjust that lifetime; use the actual expiration reported by the helper.
-- Writes only the CA/endpoint plus the observer token to a new mode-0600 file.
-  It refuses overwrites, symlinks, the default kubeconfig, input kubeconfig paths,
-  and destinations inside a Git working tree. The generated JSON is a valid
-  kubeconfig even when the filename ends in `.yaml`.
-- Captures credentials internally; neither the token nor admin configuration is
-  printed or passed as a command-line argument. The only cluster write is the
-  administrator's TokenRequest; it does not apply RBAC or create a legacy token.
+The helper refuses overwrites, symlinks, insecure TLS/proxy configurations,
+default/admin input kubeconfig paths, and destinations inside Git. It never
+prints credentials or passes them in command-line arguments. Its JSON output
+file is a valid kubeconfig even with a `.yaml` extension. The admin kubeconfig
+and default context stay untouched.
 
-The configured endpoint is `https://elder-brain.chardalyn.nies.io:6443`.
-Network reachability alone is not enough: the generated file must contain its
-trusted cluster CA and a valid observer token. Do not use
-`--insecure-skip-tls-verify` as a substitute for the CA. The API server's CA may
-be private and absent from the Mac's system trust store; embedding the CA in
-this kubeconfig is the intended solution.
-
-If the helper is run on another machine, transfer **only the observer file** to
-Navi's Mac using a private channel, outside this repository. Tell Navi the file
-path; never paste its contents or the admin kubeconfig into chat.
+The configured API endpoint is `https://elder-brain.chardalyn.nies.io:6443`.
+The cluster's private CA belongs in the kubeconfig; do not substitute
+`--insecure-skip-tls-verify`. Transfer **only the observer file** privately to
+Navi's Mac, outside this repository, and provide its path—not its contents.
+The laptop is not needed again for routine use, only deliberate credential
+rotation/recovery or later permission changes requiring admin access.
 
 ## Verify with the observer, not the admin context
 
-Always select the observer file explicitly; leave the default context alone:
+Always select its file explicitly; leave the default context alone:
 
 ```sh
 KCFG="$HOME/.kube/homelab-observer.yaml"
@@ -94,9 +105,8 @@ kubectl --kubeconfig "$KCFG" -n obojima-tools get pods -l app=obojima-tools \
   -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{" "}{.status.containerStatuses[*].ready}{" "}{.status.containerStatuses[*].imageID}{"\n"}{end}'
 ```
 
-Compare Argo's observed revision with the intended homelab commit and compare
-the running image digest with the published manifest. A Git push by itself does
-not prove either condition.
+Compare the observed Argo revision and running image digest with the intended
+Git commit and published image; a Git push alone proves neither.
 
 Check the permission boundary without reading secret data:
 
@@ -107,27 +117,28 @@ kubectl --kubeconfig "$KCFG" -n argocd auth can-i get application/obojima-tools
 # Expected no:
 kubectl --kubeconfig "$KCFG" -n obojima-tools auth can-i get secrets
 kubectl --kubeconfig "$KCFG" -n argocd auth can-i get secrets
+kubectl --kubeconfig "$KCFG" -n navi-observer auth can-i get secret/navi-observer-credential
 kubectl --kubeconfig "$KCFG" -n obojima-tools auth can-i patch deployment/obojima-tools
 kubectl --kubeconfig "$KCFG" -n kube-system auth can-i get pods
 kubectl --kubeconfig "$KCFG" auth can-i get nodes
 ```
 
-These must be exercised against the live cluster after provisioning. Offline
-manifest/helper tests are not evidence of effective live RBAC: other existing
-bindings can add permissions.
+Run these after provisioning: offline helper/manifest tests do not prove live
+RBAC, since existing bindings can add permissions.
 
-## Expiry and revocation
+## Revocation and deliberate rotation
 
-After expiry, mint a fresh file on the admin workstation. The helper intentionally
-refuses to overwrite the old one; use a fresh output path or deliberately remove
-the expired observer file first. Transfer only the new observer file, never the
-admin configuration. There is no renewal daemon or long-lived token in Git.
+To revoke read access, remove the RoleBindings through GitOps and confirm
+protected-resource denial with the old observer file. To invalidate the credential
+itself, remove the credential Secret from GitOps and confirm it is pruned. Do
+not merely delete a still-declared live object: Argo self-healing recreates it.
 
-To revoke through GitOps, remove these RoleBindings (and the account when it is
-no longer needed) from this application's manifests and let Argo reconcile.
-Confirm denial using the former observer credential; do not merely wait for an
-old token's requested expiry. Deleting resources directly while they remain in
-Git can cause Argo self-healing to recreate them.
+For deliberate rotation, provision a **new Secret name**, update the named
+Secret in the Argo ignore rule and helper, export the new credential privately,
+and prune the old Secret through GitOps. Verify the old credential no longer
+works before removing its local file. The helper refuses output overwrites;
+use a new path or deliberately remove the old observer file. Never distribute
+the administrator kubeconfig as a shortcut.
 
 ## Local validation and upstream references
 
@@ -138,9 +149,9 @@ python3 scripts/mint-observer-kubeconfig.py --help
 git diff --check
 ```
 
-The helper tests use explicit fake `kubectl` responses and a disposable test CA;
-they never request a live token or use a production kubeconfig.
+Helper tests use explicit fake `kubectl`/Secret responses and a disposable test
+CA; they never read a live credential or use a production kubeconfig.
 
+- [Kubernetes ServiceAccount credential lifecycle](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/)
 - [Kubernetes RBAC and name restrictions](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
-- [TokenRequest through kubectl create token](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_token/)
-- [Kubeconfig organization and cluster trust](https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/)
+- [Argo sync options and ignored differences](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/)

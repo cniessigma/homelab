@@ -8,7 +8,6 @@ network request, credential issuance, or cluster operation is ever performed.
 import base64
 from contextlib import redirect_stderr, redirect_stdout
 import copy
-from datetime import datetime, timedelta, timezone
 import importlib.util
 import io
 import json
@@ -34,14 +33,24 @@ ADMIN_SECRETS = [
     "SYNTHETIC-EXEC-SECRET", "SYNTHETIC-AUTH-PROVIDER-SECRET",
 ]
 CONTEXT = "synthetic-explicit-admin-context"
+SECRET_EXTRAS = ["SYNTHETIC-UNTRUSTED-SECRET-CA", "SYNTHETIC-SECRET-EXTRA-DATA"]
 
 
-def fixture_request(minutes=60):
+def fixture_secret():
     return {
-        "apiVersion": "authentication.k8s.io/v1", "kind": "TokenRequest",
-        "status": {
-            "token": SYNTHETIC_TOKEN,
-            "expirationTimestamp": (datetime.now(timezone.utc) + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z"),
+        "apiVersion": "v1", "kind": "Secret",
+        "metadata": {
+            "name": "navi-observer-credential", "namespace": "navi-observer",
+            "annotations": {
+                "kubernetes.io/service-account.name": "navi-observer",
+                "kubernetes.io/service-account.uid": "synthetic-controller-populated-sa-uid",
+            },
+        },
+        "type": "kubernetes.io/service-account-token",
+        "data": {
+            "token": base64.b64encode(SYNTHETIC_TOKEN.encode("ascii")).decode("ascii"),
+            "ca.crt": base64.b64encode(SECRET_EXTRAS[0].encode("ascii")).decode("ascii"),
+            "extra": base64.b64encode(SECRET_EXTRAS[1].encode("ascii")).decode("ascii"),
         },
     }
 
@@ -102,30 +111,39 @@ class ObserverKubeconfigTests(unittest.TestCase):
 
     def invoke(self, *, config=None, response=None, output=None, admin=None, failure=None, race=None):
         config = self.config if config is None else config
-        response = fixture_request() if response is None else response
+        response = fixture_secret() if response is None else response
         stdout, stderr = io.StringIO(), io.StringIO()
         calls = []
+        prefix = ["kubectl"]
+        if admin is not None:
+            prefix.extend(["--kubeconfig", str(Path(admin).expanduser().absolute())])
+        expected = [
+            prefix + ["config", "view", "--context", CONTEXT, "--minify", "--flatten", "--raw", "-o", "json"],
+            prefix + ["--context", CONTEXT, "-n", "navi-observer", "get", "secret", "navi-observer-credential", "-o", "json"],
+        ]
 
         def mocked_kubectl(argv, **kwargs):
             calls.append((argv, kwargs))
-            self.assertEqual(argv[0], "kubectl")
+            self.assertLessEqual(len(calls), 2)
+            self.assertEqual(argv, expected[len(calls) - 1])
             self.assertTrue(kwargs["capture_output"])
             self.assertTrue(kwargs["text"])
             self.assertFalse(kwargs["check"])
             self.assertEqual(kwargs["stdin"], subprocess.DEVNULL)
             self.assertEqual(kwargs["timeout"], 60)
             self.assertNotIn(SYNTHETIC_TOKEN, json.dumps(argv))
+            self.assertNotIn(fixture_secret()["data"]["token"], json.dumps(argv))
             for secret in ADMIN_SECRETS:
                 self.assertNotIn(secret, json.dumps(argv))
-            is_request = "create" in argv
-            if failure and failure[0] == ("token" if is_request else "config"):
+            is_secret = "get" in argv
+            if failure and failure[0] == ("secret" if is_secret else "config"):
                 value = failure[1]
                 if isinstance(value, BaseException):
                     raise value
                 return subprocess.CompletedProcess(argv, 1, SYNTHETIC_TOKEN, " ".join(ADMIN_SECRETS))
-            if is_request and race:
+            if is_secret and race:
                 race()
-            data = response if is_request else config
+            data = response if is_secret else config
             payload = data if isinstance(data, str) else json.dumps(data)
             # Even successful stderr is secret and must not be echoed.
             return subprocess.CompletedProcess(argv, 0, payload, " ".join(ADMIN_SECRETS) + SYNTHETIC_TOKEN)
@@ -136,8 +154,11 @@ class ObserverKubeconfigTests(unittest.TestCase):
         with patch.object(helper.subprocess, "run", side_effect=mocked_kubectl), redirect_stdout(stdout), redirect_stderr(stderr):
             code = helper.main(arguments)
         text = stdout.getvalue() + stderr.getvalue()
+        self.assertLessEqual(len(calls), 2)
+        self.assertEqual([argv for argv, _ in calls], expected[:len(calls)])
         self.assertNotIn(SYNTHETIC_TOKEN, text)
-        for secret in ADMIN_SECRETS:
+        self.assertNotIn(fixture_secret()["data"]["token"], text)
+        for secret in ADMIN_SECRETS + SECRET_EXTRAS:
             self.assertNotIn(secret, text)
         return code, stdout.getvalue(), stderr.getvalue(), calls
 
@@ -147,14 +168,17 @@ class ObserverKubeconfigTests(unittest.TestCase):
             self.assertEqual(list(self.output.parent.iterdir()), [])
 
     def test_success_is_minimal_private_and_uses_explicit_context(self):
-        response = fixture_request()
+        response = fixture_secret()
         code, stdout, stderr, calls = self.invoke(response=response)
         self.assertEqual(code, 0)
         self.assertEqual(stderr, "")
-        self.assertIn(response["status"]["expirationTimestamp"], stdout)
+        self.assertIn("One-time", stdout)
+        self.assertIn("Durable, nonexpiring", stdout)
+        self.assertIn("until revoked", stdout)
+        self.assertNotIn("expiry:", stdout)
         self.assertEqual(len(calls), 2)
         self.assertEqual(calls[0][0], ["kubectl", "config", "view", "--context", CONTEXT, "--minify", "--flatten", "--raw", "-o", "json"])
-        self.assertEqual(calls[1][0], ["kubectl", "--context", CONTEXT, "-n", "navi-observer", "create", "token", "navi-observer", "--duration=1h", "-o", "json"])
+        self.assertEqual(calls[1][0], ["kubectl", "--context", CONTEXT, "-n", "navi-observer", "get", "secret", "navi-observer-credential", "-o", "json"])
         self.assertEqual(stat.S_IMODE(self.output.stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE(self.output.parent.stat().st_mode), 0o700)
         self.assertEqual(stat.S_IMODE(self.output.parent.parent.stat().st_mode), 0o700)
@@ -168,9 +192,11 @@ class ObserverKubeconfigTests(unittest.TestCase):
         self.assertEqual(actual["clusters"], [{"name": "navi-observer", "cluster": {
             "server": "https://synthetic-api.invalid:6443", "certificate-authority-data": self.ca_data,
             "tls-server-name": "synthetic-api.invalid"}}])
-        for secret in ADMIN_SECRETS:
+        for secret in ADMIN_SECRETS + SECRET_EXTRAS:
             self.assertNotIn(secret, content)
-        for forbidden in ("exec", "client-key", "client-certificate", "auth-provider", "extensions", "admin-only"):
+        for value in response["data"].values():
+            self.assertNotIn(value, content)
+        for forbidden in ("exec", "client-key", "client-certificate", "auth-provider", "extensions", "admin-only", "metadata", "ca.crt"):
             self.assertNotIn(forbidden, content)
         self.assertEqual(list(self.output.parent.iterdir()), [self.output])
 
@@ -194,7 +220,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(set(json.loads(self.output.read_text())["clusters"][0]["cluster"]), {"server", "certificate-authority-data"})
 
-    def test_missing_invalid_or_non_ca_certificate_rejected_before_token(self):
+    def test_missing_invalid_or_non_ca_certificate_rejected_before_secret_read(self):
         cases = [None, "", "not-base64!", base64.b64encode(b"not PEM").decode(),
                  base64.b64encode(b"-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n").decode(),
                  base64.b64encode((self.ca_pem + self.ca_key).encode()).decode()]
@@ -210,7 +236,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
                 self.assertEqual(len(calls), 1)
                 self.assert_no_file()
 
-    def test_insecure_tls_and_proxy_configuration_rejected_before_token(self):
+    def test_insecure_tls_and_proxy_configuration_rejected_before_secret_read(self):
         for field, value in [("insecure-skip-tls-verify", True), ("insecure-skip-tls-verify", "false"),
                              ("proxy-url", "http://SYNTHETIC-ADMIN-TOKEN:password@proxy.invalid"), ("proxy-url", "")]:
             with self.subTest(field=field, value_type=type(value).__name__):
@@ -221,7 +247,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
                 self.assertEqual(len(calls), 1)
                 self.assert_no_file()
 
-    def test_invalid_or_credential_bearing_server_rejected_before_token(self):
+    def test_invalid_or_credential_bearing_server_rejected_before_secret_read(self):
         for server in ["http://synthetic.invalid", "https://user:password@synthetic.invalid", "https://synthetic.invalid?token=secret",
                        "https://synthetic.invalid/#secret", "https://synthetic.invalid:bad", "https:///missing", None]:
             with self.subTest(server=server):
@@ -232,7 +258,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
                 self.assertEqual(len(calls), 1)
                 self.assert_no_file()
 
-    def test_malformed_or_wrong_context_config_rejected_before_token(self):
+    def test_malformed_or_wrong_context_config_rejected_before_secret_read(self):
         wrong = copy.deepcopy(self.config)
         wrong["contexts"][0]["name"] = "different-context"
         for config in ["not JSON " + ADMIN_SECRETS[0], [], {}, wrong]:
@@ -294,7 +320,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
                 self.assertEqual(calls, [])
                 self.assertFalse((repo / "nested").exists())
 
-    def test_unsafe_existing_directory_refused_before_token(self):
+    def test_unsafe_existing_directory_refused_before_secret_read(self):
         self.output.parent.mkdir(mode=0o700, parents=True)
         self.output.parent.chmod(0o777)
         code, _, _, calls = self.invoke()
@@ -303,7 +329,7 @@ class ObserverKubeconfigTests(unittest.TestCase):
         self.assert_no_file()
 
     def test_failed_kubectl_results_and_exceptions_are_sanitized(self):
-        for stage in ["config", "token"]:
+        for stage in ["config", "secret"]:
             for exception in [None,
                               subprocess.CalledProcessError(1, ["kubectl"], output=SYNTHETIC_TOKEN, stderr=ADMIN_SECRETS[0]),
                               subprocess.TimeoutExpired(["kubectl"], 60, output=SYNTHETIC_TOKEN, stderr=ADMIN_SECRETS[0]),
@@ -312,39 +338,78 @@ class ObserverKubeconfigTests(unittest.TestCase):
                     code, _, stderr, calls = self.invoke(failure=(stage, exception))
                     self.assertEqual(code, 1)
                     self.assertEqual(len(calls), 1 if stage == "config" else 2)
-                    if stage == "token":
+                    if stage == "secret":
                         self.assertIn("Wait for Argo", stderr)
                     self.assert_no_file()
 
-    def test_malformed_missing_or_expired_token_response_never_creates_file(self):
-        invalid = ["malformed " + SYNTHETIC_TOKEN, [], {}, {"kind": "TokenRequest"}]
-        for key, value in [("token", None), ("token", ""), ("token", "contains whitespace"),
-                           ("expirationTimestamp", None), ("expirationTimestamp", "not-a-date"),
-                           ("expirationTimestamp", "2099-01-01T00:00:00"),
-                           ("expirationTimestamp", "2000-01-01T00:00:00Z"),
-                           ("expirationTimestamp", "2099-99-99T00:00:00Z")]:
-            response = fixture_request()
-            response["status"][key] = value
-            invalid.append(response)
-        for index, response in enumerate(invalid):
-            with self.subTest(case=index):
-                code, stdout, _, calls = self.invoke(response=response)
-                self.assertEqual(code, 1)
-                self.assertEqual(stdout, "")
-                self.assertEqual(len(calls), 2)
-                self.assert_no_file()
+    def assert_secret_refused(self, response, diagnostic):
+        code, stdout, stderr, calls = self.invoke(response=response)
+        self.assertEqual(code, 1)
+        self.assertEqual(stdout, "")
+        self.assertIn(diagnostic, stderr)
+        self.assertEqual(len(calls), 2)
+        self.assert_no_file()
 
-    def test_server_shorter_and_longer_lifetime_report_actual_expiry_and_warning(self):
-        for minutes in [10, 120]:
-            with self.subTest(minutes=minutes):
-                response = fixture_request(minutes)
-                output = self.root / ("expiry-" + str(minutes) + ".json")
-                code, stdout, stderr, _ = self.invoke(response=response, output=output)
-                self.assertEqual(code, 0)
-                self.assertIn(response["status"]["expirationTimestamp"], stdout)
-                self.assertIn("Warning", stderr)
-                self.assertIn("actual expiry", stderr)
-                self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+    def test_malformed_secret_response_never_creates_file(self):
+        for index, response in enumerate(["malformed " + SYNTHETIC_TOKEN, [], {}, {"kind": "TokenRequest"}]):
+            with self.subTest(case=index):
+                self.assert_secret_refused(response, "kubeconfig was written")
+
+    def test_wrong_secret_kind_version_identity_or_type_rejected(self):
+        for field, value in [("kind", "Config"), ("kind", None), ("apiVersion", "v2"),
+                             ("apiVersion", None), ("type", "Opaque"), ("type", None),
+                             ("metadata", None), ("metadata", [])]:
+            with self.subTest(field=field, value=value):
+                response = fixture_secret()
+                response[field] = value
+                self.assert_secret_refused(response, "Secret")
+        for field in ["name", "namespace"]:
+            for value in [None, "", "wrong-identity", "navi-observer-credential " if field == "name" else "navi-observer "]:
+                with self.subTest(field=field, value=value):
+                    response = fixture_secret()
+                    response["metadata"][field] = value
+                    self.assert_secret_refused(response, "identity or type")
+
+    def test_missing_or_wrong_serviceaccount_name_annotation_rejected(self):
+        for annotations in [None, [], {}, {"kubernetes.io/service-account.name": "wrong-sa"},
+                            {"kubernetes.io/service-account.name": "navi-observer "}]:
+            with self.subTest(annotations=annotations):
+                response = fixture_secret()
+                response["metadata"]["annotations"] = annotations
+                self.assert_secret_refused(response, "must identify the navi-observer ServiceAccount")
+
+    def test_unpopulated_or_invalid_controller_uid_annotation_rejected(self):
+        for uid in [None, "", " ", "uid\n", 123, []]:
+            with self.subTest(uid=uid):
+                response = fixture_secret()
+                response["metadata"]["annotations"]["kubernetes.io/service-account.uid"] = uid
+                self.assert_secret_refused(response, "Wait for the Kubernetes token controller")
+        response = fixture_secret()
+        del response["metadata"]["annotations"]["kubernetes.io/service-account.uid"]
+        self.assert_secret_refused(response, "UID annotation")
+
+    def test_unpopulated_secret_data_or_token_rejected(self):
+        for data in [None, {}, [], {"token": None}, {"token": ""}]:
+            with self.subTest(data=data):
+                response = fixture_secret()
+                response["data"] = data
+                self.assert_secret_refused(response, "token is not populated")
+        response = fixture_secret()
+        del response["data"]
+        self.assert_secret_refused(response, "Wait for the Kubernetes token controller")
+
+    def test_token_requires_strict_base64_ascii_bearer_without_whitespace(self):
+        malformed = [123, [], "not-base64!", "é", "Zg", "Zg===", "Zh==",
+                     fixture_secret()["data"]["token"] + "\n"]
+        malformed.extend(base64.b64encode(value).decode("ascii") for value in [
+            b" ", b" leading", b"trailing ", b"line\nbreak", b"tab\ttoken", b"\x00",
+            b"\x1f", b"\x7f", b"\xff", "nonascii-é".encode("utf-8"), b"bearer:invalid",
+        ])
+        for index, token in enumerate(malformed):
+            with self.subTest(case=index):
+                response = fixture_secret()
+                response["data"]["token"] = token
+                self.assert_secret_refused(response, "strict base64")
 
     def test_exclusive_publication_cannot_overwrite_racing_file_or_symlink(self):
         for symlink in [False, True]:
@@ -377,10 +442,19 @@ class ObserverKubeconfigTests(unittest.TestCase):
     def test_required_arguments_and_help_do_not_run_kubectl(self):
         with patch.object(helper.subprocess, "run") as run:
             for argv, exit_code in [([], 2), (["--context", CONTEXT], 2), (["--output", str(self.output)], 2), (["--help"], 0)]:
-                with self.subTest(argv=argv), redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                stdout = io.StringIO()
+                with self.subTest(argv=argv), redirect_stdout(stdout), redirect_stderr(io.StringIO()):
                     with self.assertRaises(SystemExit) as raised:
                         helper.main(argv)
                     self.assertEqual(raised.exception.code, exit_code)
+                    if argv == ["--help"]:
+                        text = " ".join(stdout.getvalue().split())
+                        for required in ["One-time export", "durable, nonexpiring", "until revoked",
+                                         "Only reads cluster state", "navi-observer-credential",
+                                         "token controller", "allowed to get that Secret"]:
+                            self.assertIn(required, text)
+                        for obsolete in ["TokenRequest", "--duration", "short-lived", "serviceaccounts/token"]:
+                            self.assertNotIn(obsolete, text)
             run.assert_not_called()
 
 

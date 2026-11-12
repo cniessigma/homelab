@@ -14,9 +14,20 @@ spec:
     - path: k8s/deployments/configs/navi-observer
       repoURL: git@github.com:cniessigma/homelab.git
       targetRevision: HEAD
+  # Only this named Secret's controller-generated fields are ignored. Never
+  # erase/recommit its generated credential during normal GitOps reconciliation.
+  ignoreDifferences:
+    - group: ''
+      kind: Secret
+      name: navi-observer-credential
+      namespace: navi-observer
+      jsonPointers:
+        - /data
+        - /metadata/annotations/kubernetes.io~1service-account.uid
   syncPolicy:
     syncOptions:
       - CreateNamespace=true
+      - RespectIgnoreDifferences=true
     automated:
       prune: true
       selfHeal: true

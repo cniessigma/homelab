@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
-"""Mint a standalone, short-lived observer kubeconfig without copying admin auth.
+"""One-time export of a durable observer kubeconfig without copying admin auth.
 
-No cluster resources are created except a TokenRequest for the existing GitOps
-ServiceAccount. All kubectl output is captured and treated as secret input.
+Only reads the existing GitOps-managed ServiceAccount token Secret; no cluster
+writes. All kubectl output is captured and treated as secret input.
 """
 
 import argparse
 import base64
 import binascii
-from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -28,26 +27,29 @@ class SafeError(Exception):
 def parser():
     result = argparse.ArgumentParser(
         description=(
-            "Request a short-lived token for the existing navi-observer "
-            "ServiceAccount and write a separate, private observer kubeconfig. "
+            "One-time export of the durable, nonexpiring navi-observer "
+            "ServiceAccount token to a separate, private observer kubeconfig. "
+            "Only reads cluster state; the credential remains usable until revoked. "
             "Never changes the administrator's kubeconfig or current context."
         ),
         epilog=(
             "Preconditions: use a trusted administrator workstation/config and an "
             "explicit intended cluster context; wait for Argo to sync the "
-            "navi-observer ServiceAccount and read-only RBAC first. The administrator "
-            "must be allowed to create serviceaccounts/token in navi-observer. "
+            "navi-observer ServiceAccount, read-only RBAC, and navi-observer-credential "
+            "Secret first, then wait for the Kubernetes token controller to populate "
+            "the Secret. The administrator must be allowed to get that Secret in "
+            "navi-observer. "
             "The context must have an HTTPS API endpoint and a valid embedded PEM CA "
             "(flattening embeds a referenced CA); insecure TLS and proxy-url are "
-            "refused. Existing exec authentication plugins may run during issuance; "
+            "refused. Existing exec authentication plugins may run during the read; "
             "only use trusted inputs. Choose a NEW output outside every Git working "
             "tree, not ~/.kube/config, an admin input, or a symlink (including parent "
             "directories). New directories are 0700 and the file is 0600. "
             "Example: python3 scripts/mint-observer-kubeconfig.py --context homelab "
             "--admin-kubeconfig ~/.kube/admin-homelab --output "
             "~/.kube/observers/navi.json . Use the result with kubectl --kubeconfig "
-            "PATH; do not replace your default config. The request is for 1h, but "
-            "the server controls expiry, which is reported. The token is a bearer "
+            "PATH; do not replace your default config. This token has no automatic "
+            "expiry: protect it until revoked. The token is a bearer "
             "credential: never commit, paste, or log the output file."
         ),
     )
@@ -57,13 +59,14 @@ def parser():
     return result
 
 
-def kubectl_json(arguments, *, token_request=False):
+def kubectl_json(arguments, *, secret_read=False):
     """Never expose stdout/stderr or exception strings from the subprocess."""
-    if token_request:
+    if secret_read:
         failure = (
-            "Token request failed. Wait for Argo to sync the navi-observer "
-            "ServiceAccount/RBAC, then verify the explicit administrator context "
-            "and its permission to create serviceaccounts/token. No kubeconfig was written."
+            "Cannot read the observer credential Secret. Wait for Argo to sync "
+            "navi-observer-credential in navi-observer, then verify the explicit "
+            "administrator context and its permission to get that Secret. "
+            "No kubeconfig was written."
         )
     else:
         failure = "Cannot read the explicit administrator context. Check the trusted kubeconfig and kubectl installation."
@@ -129,7 +132,7 @@ def cluster_tls(config, context):
         if not trust.get_ca_certs():
             raise ValueError
     except (ValueError, UnicodeError, binascii.Error, ssl.SSLError):
-        raise SafeError("A valid embedded base64 PEM certificate authority is required; no token was requested.") from None
+        raise SafeError("A valid embedded base64 PEM certificate authority is required; no credential Secret was read.") from None
     safe = {"server": server, "certificate-authority-data": encoded}
     if "tls-server-name" in cluster:
         name = cluster["tls-server-name"]
@@ -140,27 +143,39 @@ def cluster_tls(config, context):
     return safe
 
 
-def token_status(response):
-    if response.get("kind") != "TokenRequest" or response.get("apiVersion") != "authentication.k8s.io/v1":
-        raise SafeError("Malformed TokenRequest response; no kubeconfig was written.")
-    status = response.get("status")
-    if not isinstance(status, dict):
-        raise SafeError("Missing TokenRequest status; no kubeconfig was written.")
-    token, timestamp = status.get("token"), status.get("expirationTimestamp")
-    if (not isinstance(token, str) or not token
-            or any(c.isspace() or ord(c) < 33 or ord(c) > 126 for c in token)):
-        raise SafeError("Missing or malformed issued token; no kubeconfig was written.")
+def secret_token(response):
+    """Accept only the intended controller-populated Secret's bearer token."""
+    if response.get("kind") != "Secret" or response.get("apiVersion") != "v1":
+        raise SafeError("Expected a v1 Secret response; no kubeconfig was written.")
+    metadata = response.get("metadata")
+    if (not isinstance(metadata, dict)
+            or metadata.get("name") != "navi-observer-credential"
+            or metadata.get("namespace") != "navi-observer"
+            or response.get("type") != "kubernetes.io/service-account-token"):
+        raise SafeError("Wrong observer credential Secret identity or type; check the GitOps manifest and explicit context. No kubeconfig was written.")
+    annotations = metadata.get("annotations")
+    if (not isinstance(annotations, dict)
+            or annotations.get("kubernetes.io/service-account.name") != "navi-observer"):
+        raise SafeError("Observer credential Secret must identify the navi-observer ServiceAccount. No kubeconfig was written.")
+    uid = annotations.get("kubernetes.io/service-account.uid")
+    if (not isinstance(uid, str) or not uid
+            or any(c.isspace() or ord(c) < 33 for c in uid)):
+        raise SafeError("Observer credential Secret lacks a populated ServiceAccount UID annotation. Wait for the Kubernetes token controller after Argo sync; no kubeconfig was written.")
+    data = response.get("data")
+    encoded = data.get("token") if isinstance(data, dict) else None
+    if encoded is None or encoded == "":
+        raise SafeError("Observer credential Secret token is not populated. Wait for the Kubernetes token controller after Argo sync; no kubeconfig was written.")
     try:
-        if not isinstance(timestamp, str) or not re.fullmatch(
-            r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})", timestamp
-        ):
+        if not isinstance(encoded, str):
             raise ValueError
-        expiry = datetime.fromisoformat(timestamp.replace("Z", "+00:00")).astimezone(timezone.utc)
-        if expiry <= datetime.now(timezone.utc):
+        decoded = base64.b64decode(encoded, validate=True)
+        token = decoded.decode("ascii")
+        if (base64.b64encode(decoded).decode("ascii") != encoded
+                or not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", token)):
             raise ValueError
-    except ValueError:
-        raise SafeError("Token expiry is missing, invalid, or already past; no kubeconfig was written.") from None
-    return token, expiry
+    except (ValueError, UnicodeError, binascii.Error):
+        raise SafeError("Observer credential Secret token must be strict base64 encoding of a nonempty ASCII bearer token without whitespace. No kubeconfig was written.") from None
+    return token
 
 
 def output_path(value, admin_kubeconfig):
@@ -258,15 +273,14 @@ def mint(args):
         prefix.extend(["--kubeconfig", str(Path(args.admin_kubeconfig).expanduser().absolute())])
     raw = kubectl_json(prefix + ["config", "view", "--context", args.context, "--minify", "--flatten", "--raw", "-o", "json"])
     tls = cluster_tls(raw, args.context)
-    del raw  # Do not retain the administrator configuration through issuance.
+    del raw  # Do not retain the administrator configuration through the Secret read.
     directory = open_destination(path)
     try:
-        started = datetime.now(timezone.utc)
         response = kubectl_json(
-            prefix + ["--context", args.context, "-n", "navi-observer", "create", "token", "navi-observer", "--duration=1h", "-o", "json"],
-            token_request=True,
+            prefix + ["--context", args.context, "-n", "navi-observer", "get", "secret", "navi-observer-credential", "-o", "json"],
+            secret_read=True,
         )
-        token, expiry = token_status(response)
+        token = secret_token(response)
         config = {
             "apiVersion": "v1", "kind": "Config",
             "clusters": [{"name": "navi-observer", "cluster": tls}],
@@ -279,10 +293,7 @@ def mint(args):
         publish(directory, path.name, config)
     finally:
         os.close(directory)
-    seconds = (expiry - started).total_seconds()
-    if abs(seconds - 3600) > 300:
-        print("Warning: server-issued lifetime differs from the requested 1h by more than 5 minutes; use the actual expiry below.", file=sys.stderr)
-    print("Observer kubeconfig created (0600). Actual token expiry: " + expiry.isoformat().replace("+00:00", "Z"))
+    print("One-time observer kubeconfig export created (0600). Durable, nonexpiring bearer credential: protect it until revoked.")
 
 
 def main(argv=None):

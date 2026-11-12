@@ -3,8 +3,8 @@ kind: ServiceAccount
 metadata:
   name: navi-observer
   namespace: navi-observer
-# This is an external observer, not a pod identity. Mint short-lived credentials
-# explicitly; do not create a legacy service-account-token Secret.
+# External observer, not a pod identity. The separately managed credential
+# Secret is deliberately not referenced in ServiceAccount.secrets.
 automountServiceAccountToken: false
 ---
 apiVersion: rbac.authorization.k8s.io/v1

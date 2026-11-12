@@ -5,3 +5,4 @@ kind: Kustomization
 # the observer's identity and its two read scopes intentionally differ.
 resources:
   - rbac.yaml
+  - credential.yaml
