@@ -1,10 +1,12 @@
 # Thingie
 
-## Read-only deployment observation
+## Cluster-wide diagnostic access
 
-See [Navi's Obojima observer](k8s/deployments/configs/navi-observer/README.md)
-for the scoped GitOps RBAC and one-time durable-kubeconfig bootstrap. Credentials must
-remain outside this repository; this does not grant general cluster access.
+See [Navi's cluster-wide diagnostic observer](k8s/deployments/configs/navi-observer/README.md)
+for broad diagnostic reads (including Secret contents) and the one-time durable
+kubeconfig bootstrap. Generated credentials must remain outside this repository.
+The declared role excludes workload writes and active exec/proxy endpoints;
+Secret contents may nevertheless expose more privileged credentials.
 
 ## Talos configuration
 
