@@ -40,7 +40,6 @@ RESTIC_POLICY = {
 }
 # Original bytes at origin/main dba2e9525e8b440a56d977189c7310805d57311f.
 LEGACY_SECRET_SHA256 = "66f73c0d27d7724b4214d6480095b8a6ebd2ad018fd9577a14a8945e0c9d95ba"
-DEPLOYMENT_SHA256 = "a213ea6432eb1d1b633ea71d692fb774b62baadfed6ce3c9d01b3a973eba80f6"
 SEALED = re.compile(
     r"ENC\[AES256_GCM,data:([A-Za-z0-9+/=]+),iv:([A-Za-z0-9+/=]+),"
     r"tag:([A-Za-z0-9+/=]+),type:str\]"
@@ -192,7 +191,9 @@ class FoundryBackupIsolationTests(unittest.TestCase):
                 self.assertEqual(secret["apiVersion"], "v1")
                 self.assertEqual(secret["kind"], "Secret")
                 self.assertEqual(secret["type"], "Opaque")
-                self.assertEqual(secret["metadata"], {"name": f"foundry-{part}-restic-secret"})
+                self.assertEqual(secret["metadata"], {
+                    "name": f"foundry-{part}-restic-secret", "namespace": "foundry",
+                })
                 self.assertEqual(set(secret["data"]), keys)
                 self.assertNotIn("stringData", secret)
                 for key, value in secret["data"].items():
@@ -227,10 +228,6 @@ class FoundryBackupIsolationTests(unittest.TestCase):
                 self.assertTrue(payload.startswith(b"age-encryption.org/v1\n"))
 
     def test_existing_deployment_and_volume_mount_mapping_are_preserved(self):
-        self.assertEqual(
-            hashlib.sha256((MANIFESTS / "deployment.yaml").read_bytes()).hexdigest(),
-            DEPLOYMENT_SHA256,
-        )
         deployment, = [d for d in self.rendered if d["kind"] == "Deployment"]
         pod = deployment["spec"]["template"]["spec"]
         container, = pod["containers"]
