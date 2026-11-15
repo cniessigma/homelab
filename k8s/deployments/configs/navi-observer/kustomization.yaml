@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Preserve the account/Secret namespace and keep the diagnostic ClusterRole
+# and ClusterRoleBinding cluster-scoped; do not add a namespace transformer.
+resources:
+  - rbac.yaml
+  - credential.yaml

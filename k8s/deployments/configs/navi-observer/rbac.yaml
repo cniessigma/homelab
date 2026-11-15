@@ -1,0 +1,158 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: navi-observer
+  namespace: navi-observer
+# External identity; keep the manually managed credential out of SA.secrets.
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: navi-observer
+rules:
+  # Cluster-wide reads across API groups, but explicit top-level resources.
+  # Do NOT replace this list with '*': GET on nodes/proxy (and other active
+  # subresources) is not read-only. New resource plurals need explicit review.
+  - apiGroups: ['*']
+    resources:
+      # Core objects, workloads, networking, policy, RBAC and API discovery.
+      - apiservices
+      - certificatesigningrequests
+      - clusterrolebindings
+      - clusterroles
+      - clustertrustbundles
+      - componentstatuses
+      - configmaps
+      - controllerrevisions
+      - cronjobs
+      - customresourcedefinitions
+      - daemonsets
+      - deployments
+      - endpoints
+      - endpointslices
+      - events
+      - flowschemas
+      - horizontalpodautoscalers
+      - ingressclasses
+      - ingresses
+      - ipaddresses
+      - jobs
+      - leasecandidates
+      - leases
+      - limitranges
+      - mutatingwebhookconfigurations
+      - namespaces
+      - networkpolicies
+      - nodes
+      - poddisruptionbudgets
+      - pods
+      - podtemplates
+      - priorityclasses
+      - prioritylevelconfigurations
+      - replicasets
+      - replicationcontrollers
+      - resourcequotas
+      - rolebindings
+      - roles
+      - runtimeclasses
+      # Explicitly approved: Secret contents, including credential-bearing ones.
+      - secrets
+      - serviceaccounts
+      - servicecidrs
+      - services
+      - statefulsets
+      - validatingadmissionpolicies
+      - validatingadmissionpolicybindings
+      - validatingwebhookconfigurations
+      # Persistent storage, CSI, snapshots, resource allocation and migration.
+      - csidrivers
+      - csinodes
+      - csistoragecapacities
+      - deviceclasses
+      - persistentvolumeclaims
+      - persistentvolumes
+      - resourceclaims
+      - resourceclaimtemplates
+      - resourceslices
+      - storageclasses
+      - storageversionmigrations
+      - storageversions
+      - volumeattachments
+      - volumeattributesclasses
+      - volumegroupsnapshotclasses
+      - volumegroupsnapshotcontents
+      - volumegroupsnapshots
+      - volumesnapshotclasses
+      - volumesnapshotcontents
+      - volumesnapshots
+      # VolSync and Argo CD (current homelab controllers).
+      - replicationdestinations
+      - replicationsources
+      - applications
+      - applicationsets
+      - appprojects
+      # MetalLB (current homelab networking).
+      - bfdprofiles
+      - bgpadvertisements
+      - bgppeers
+      - communities
+      - ipaddresspools
+      - l2advertisements
+      - servicebgpstatuses
+      - servicel2statuses
+      # Common backup/certificate/monitoring operators, when installed.
+      - backuprepositories
+      - backups
+      - backupstoragelocations
+      - datadownloads
+      - datauploads
+      - deletebackuprequests
+      - downloadrequests
+      - podvolumebackups
+      - podvolumerestores
+      - resticrepositories
+      - restores
+      - schedules
+      - serverstatusrequests
+      - volumesnapshotlocations
+      - certificaterequests
+      - certificates
+      - challenges
+      - clusterissuers
+      - issuers
+      - orders
+      - alertmanagerconfigs
+      - alertmanagers
+      - podmonitors
+      - probes
+      - prometheusagents
+      - prometheuses
+      - prometheusrules
+      - scrapeconfigs
+      - servicemonitors
+      - thanosrulers
+    verbs: ['get', 'list', 'watch']
+  # Logs are diagnostic reads. No exec/attach/portforward/proxy subresources.
+  - apiGroups: ['']
+    resources: ['pods/log']
+    verbs: ['get']
+  - nonResourceURLs:
+      - /version
+      - /healthz
+      - /livez
+      - /readyz
+    verbs: ['get']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: navi-observer
+subjects:
+  - kind: ServiceAccount
+    name: navi-observer
+    namespace: navi-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: navi-observer
