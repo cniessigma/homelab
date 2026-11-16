@@ -1,4 +1,4 @@
-"""Offline phase-one Foundry backup isolation regression tests.
+"""Offline activated Foundry backup isolation regression tests.
 
 Run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests \
     -p 'test_foundry_backup_isolation.py' -v
@@ -8,8 +8,8 @@ removing ONLY generators before rendering. No plugins, API server, network, live
 kubeconfig, credentials, or private keys are used. Encrypted files are inspected
 separately, NOT decrypted: this is not a full KSOPS application render, MAC check,
 proof of distinct plaintext repositories/passwords, or live backup verification.
-All six movers must remain paused in this first stage. Unpausing new movers needs
-separate approval after checking actual legacy mover pod/job inactivity.
+Legacy movers must remain paused; only the three isolated movers are enabled.
+Actual legacy mover inactivity is a live pre-deployment gate, not an offline test.
 """
 
 import base64
@@ -116,14 +116,14 @@ class FoundryBackupIsolationTests(unittest.TestCase):
                     "restic": {"repository": "foundry-restic-secret", **RESTIC_POLICY},
                 })
 
-    def test_new_sources_are_paused_with_isolated_refs_and_original_policy(self):
+    def test_only_new_sources_are_enabled_with_isolated_refs_and_original_policy(self):
         references = []
         for part, schedule in SCHEDULES.items():
             with self.subTest(part=part):
                 source, = [d for d in self.sources if d["metadata"]["name"] == f"foundry-{part}-isolated-backup"]
-                self.assertIs(source["spec"].get("paused"), True)
+                self.assertIs(source["spec"].get("paused"), False)
                 self.assertEqual(source["spec"], {
-                    "paused": True, "sourcePVC": f"foundry-{part}",
+                    "paused": False, "sourcePVC": f"foundry-{part}",
                     "trigger": {"schedule": schedule},
                     "restic": {"repository": f"foundry-{part}-restic-secret", **RESTIC_POLICY},
                 })
