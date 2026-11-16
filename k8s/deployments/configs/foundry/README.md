@@ -6,6 +6,14 @@ The legacy sources saved some snapshots but failed in `forget` on repository loc
 shared hostname/path metadata also makes retention and automatic restore selection
 ambiguous. A saved snapshot is not proof of a recoverable, complete Foundry instance.
 
+## Current desired state: isolated sources enabled
+
+This revision enables only the three isolated sources. The original shared-repository
+sources remain paused, and their archive and credentials are unchanged. Deploy this
+activation only after verifying the Stage 1 inactivity gate below. After activation,
+verify actual successful backup/maintenance cycles; another activation change is not
+needed. No alerts or automatic restore/cleanup operations are included.
+
 ## Resources
 
 - `backup.yaml`: original `foundry-{worlds,base,modules}-backup` sources, permanently
@@ -25,13 +33,14 @@ ambiguous. A saved snapshot is not proof of a recoverable, complete Foundry inst
 
 ## Stage 1: approved merge pauses the old writers
 
-**All six sources are intentionally paused in this PR. Merging it alone does not
-resume working backups.** This creates an explicit cutover gate rather than relying
+**The preparation revision (PR #3) intentionally paused all six sources; merging
+that revision alone did not resume working backups.** This created an explicit
+cutover gate rather than relying
 on Argo resource ordering to prove old movers have stopped. The application itself
 stays running; its Deployment, PVCs and mounts are not modified. New source names
 also keep their Jobs, caches, and status separate from the retired sources.
 
-After an approved merge, verify Argo `foundry` is Synced at the intended commit.
+After the preparation merge, verify Argo `foundry` is Synced at that commit.
 Then, with the explicit homelab observer kubeconfig:
 
 ```sh
@@ -56,11 +65,11 @@ staged pause unattended: proceed to approved activation after verifying the gate
 
 ## Stage 2: activate only the isolated sources through Git
 
-After the Stage 1 inactivity check, make and approve a follow-up Git change that
-sets `spec.paused: false` on only the three objects in `backup-isolated.yaml`.
-**Leave all original sources in `backup.yaml` paused.** Update the phase-one tests
-in `test_foundry_backup_isolation.py` to expect only the isolated sources active;
-retain the legacy-pause and repository-isolation assertions. Do not change the old Secret
+This revision is the follow-up Git change: it sets `spec.paused: false` on only the
+three objects in `backup-isolated.yaml`. Approve its merge only after the Stage 1
+inactivity check. **Leave all original sources in `backup.yaml` paused.** The tests
+expect only the isolated sources enabled and retain the legacy-pause and repository-
+isolation assertions. Do not change the old Secret
 or enable unlock/retention against its archive. Push/merge through the normal GitOps
 path, then verify Argo at that follow-up commit. No direct `kubectl apply`/patch,
 reconciliation pause, automated hooks, alerts, or force-unlock are part of this fix.
