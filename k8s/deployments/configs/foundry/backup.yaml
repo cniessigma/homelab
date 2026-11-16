@@ -3,6 +3,8 @@ kind: ReplicationSource
 metadata:
   name: foundry-worlds-backup
 spec:
+  # Retired shared-repository writer; keep paused to preserve the old archive.
+  paused: true
   sourcePVC: foundry-worlds
   trigger:
     schedule: "0 * * * *"
@@ -22,6 +24,8 @@ kind: ReplicationSource
 metadata:
   name: foundry-modules-backup
 spec:
+  # Retired shared-repository writer; keep paused to preserve the old archive.
+  paused: true
   sourcePVC: foundry-modules
   trigger:
     schedule: "30 * * * *"
@@ -41,6 +45,8 @@ kind: ReplicationSource
 metadata:
   name: foundry-base-backup
 spec:
+  # Retired shared-repository writer; keep paused to preserve the old archive.
+  paused: true
   sourcePVC: foundry-base
   trigger:
     schedule: "15 * * * *"

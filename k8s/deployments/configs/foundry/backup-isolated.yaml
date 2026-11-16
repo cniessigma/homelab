@@ -1,0 +1,61 @@
+# Stage 1 of the cutover: keep new writers paused until every legacy mover
+# has stopped. Then activate ONLY these three sources through Git; see README.
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-worlds-isolated-backup
+spec:
+  paused: true
+  sourcePVC: foundry-worlds
+  trigger:
+    schedule: "0 * * * *"
+  restic:
+    repository: foundry-worlds-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-modules-isolated-backup
+spec:
+  paused: true
+  sourcePVC: foundry-modules
+  trigger:
+    schedule: "30 * * * *"
+  restic:
+    repository: foundry-modules-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12
+---
+apiVersion: volsync.backube/v1alpha1
+kind: ReplicationSource
+metadata:
+  name: foundry-base-isolated-backup
+spec:
+  paused: true
+  sourcePVC: foundry-base
+  trigger:
+    schedule: "15 * * * *"
+  restic:
+    repository: foundry-base-restic-secret
+    copyMethod: Direct
+    cacheStorageClassName: nfs-client
+    pruneIntervalDays: 7
+    retain:
+      hourly: 24
+      daily: 30
+      weekly: 26
+      monthly: 12

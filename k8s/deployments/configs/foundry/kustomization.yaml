@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - backup.yaml
+  - backup-isolated.yaml
 
 generators:
 - |-
@@ -18,3 +19,6 @@ generators:
   files:
   - secret.enc.yaml
   - restic-secret.enc.yaml
+  - restic-worlds-secret.enc.yaml
+  - restic-modules-secret.enc.yaml
+  - restic-base-secret.enc.yaml
